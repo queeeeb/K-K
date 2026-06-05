@@ -5,18 +5,6 @@
 - **Kaizen**: mejora continua, incremental y basada en evidencia.
 - **Kairo**: el momento oportuno — intervenir con precisión cuando el contexto lo permite.
 
-## Fundadores
-
-### Luis Martinez
-- Ingeniero Industrial con enfoque en **coding y mejora de procesos**.
-- Responsable del análisis de datos, desarrollo de herramientas y diagnóstico de procesos.
-
-### Oswaldo Aguilar
-- Ingeniero Industrial con enfoque en **gestión de proyectos**.
-- Responsable de estructuración, planeación y ejecución de proyectos con el cliente.
-
-Ambos comparten base sólida en **análisis e interpretación de datos** como eje transversal del trabajo.
-
 ## Misión
 Llevar ideas de proyecto desde la conceptualización hasta la ejecución estructurada, usando datos para encontrar áreas de mejora, oportunidad, causas y consecuencias — y traducirlos en decisiones accionables.
 
@@ -68,6 +56,3 @@ No son consultores teóricos. Su valor está en:
 - **Fase**: Arranque
 - **Adquisición de clientes**: red de contactos directa
 - **Modelo de negocio**: por definir
-- **Primer cliente**: La Regia Carnes Finas (boutique de carnes finas importadas)
-  - Problema detectado: ventas por debajo de expectativas
-  - Siguiente paso: análisis de datos para extraer insights y definir plan de acción
