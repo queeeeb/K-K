@@ -71,26 +71,6 @@ Public Sub GenerarPL()
     wbOut.Sheets(wbOut.Sheets.Count).Name = "BY SEGMENT"
     Call EscribirHoja(wbOut.Sheets("BY SEGMENT"), False, sPeriodo)
 
-    ' DEBUG sheet — remove after confirming parse is correct
-    wbOut.Sheets.Add After:=wbOut.Sheets(wbOut.Sheets.Count)
-    Dim wsDbg As Worksheet
-    Set wsDbg = wbOut.Sheets(wbOut.Sheets.Count)
-    wsDbg.Name = "DEBUG"
-    wsDbg.Cells(1, 1).Value = "NUM"
-    wsDbg.Cells(1, 2).Value = "NAME_ES"
-    wsDbg.Cells(1, 3).Value = "GRP"
-    wsDbg.Cells(1, 4).Value = "TOTAL"
-    Dim dRow As Long: dRow = 2
-    Dim dk As Long
-    For dk = 0 To nAccts - 1
-        wsDbg.Cells(dRow, 1).Value = acctNum(dk)
-        wsDbg.Cells(dRow, 2).Value = acctNameES(dk)
-        wsDbg.Cells(dRow, 3).Value = acctGrp(dk)
-        wsDbg.Cells(dRow, 4).Value = acctAmts(dk, 4)
-        dRow = dRow + 1
-    Next dk
-    wsDbg.Columns("A:D").AutoFit
-
     wbOut.Sheets("CONSOLIDATED").Activate
 
     Dim outPath As String
@@ -175,11 +155,11 @@ Private Function GetGrp(c As String) As String
     If Left(c, 4) = "4110" Then
         GetGrp = "4110"
     ElseIf Left(c, 4) = "4210" Then
-        GetGrp = "4210"
+        GetGrp = IIf(Right(c, 12) = "-000-000-000", "", "4210")
     ElseIf Left(c, 4) = "4310" Then
-        GetGrp = "4310"
+        GetGrp = IIf(Right(c, 12) = "-000-000-000", "", "4310")
     ElseIf Left(c, 4) = "4510" Then
-        GetGrp = "4510"
+        GetGrp = IIf(Right(c, 12) = "-000-000-000", "", "4510")
     ElseIf Left(c, 8) = "6100-001" Then
         GetGrp = "6001"
     ElseIf Left(c, 8) = "6100-002" Then
@@ -581,18 +561,19 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
     Dim nCols As Long: nCols = IIf(isConsolidado, 3, 11)
     Dim c As Long, s As Long, k As Long
 
-    Dim C_HEADER As Long: C_HEADER = RGB(30, 60, 100)
-    Dim C_WHITE As Long:  C_WHITE = RGB(255, 255, 255)
-    Dim C_INC As Long:    C_INC = RGB(198, 224, 180)
-    Dim C_EXP As Long:    C_EXP = RGB(255, 199, 206)
-    Dim C_OP As Long:     C_OP = RGB(255, 235, 156)
-    Dim C_NET As Long:    C_NET = RGB(169, 208, 142)
+    Dim C_HEADER As Long:   C_HEADER = RGB(128, 0, 0)
+    Dim C_WHITE As Long:    C_WHITE = RGB(255, 255, 255)
+    Dim C_SUBTOTAL As Long: C_SUBTOTAL = RGB(153, 204, 255)
+
+    ws.Cells.Font.Name = "Arial"
+    ws.Cells.Font.Size = 9
 
     ' Header
     ws.Cells(r, 1).Value = "P-TRES GROUP, S.A.P.I. DE C.V."
-    ws.Cells(r, 1).Font.Bold = True: ws.Cells(r, 1).Font.Size = 13
+    ws.Cells(r, 1).Font.Bold = True: ws.Cells(r, 1).Font.Size = 12
     r = r + 1
     ws.Cells(r, 1).Value = "Profit and Loss Statement" & IIf(isConsolidado, " — ", " by Segment — ") & periodo
+    ws.Cells(r, 1).Font.Bold = True: ws.Cells(r, 1).Font.Size = 12
     r = r + 2
 
     ' Column headers
@@ -612,13 +593,21 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
         ws.Cells(r, 10).Value = "TOTAL"
         ws.Cells(r, 11).Value = "%"
     End If
-    With ws.Range(ws.Cells(r, 1), ws.Cells(r, nCols))
+    With ws.Range(ws.Cells(r, 1), ws.Cells(r + 1, nCols))
         .Font.Bold = True
         .Interior.Color = C_HEADER
         .Font.Color = C_WHITE
         .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+        .WrapText = True
     End With
-    r = r + 1
+    Dim hc As Long
+    For hc = 1 To nCols
+        ws.Range(ws.Cells(r, hc), ws.Cells(r + 1, hc)).Merge
+    Next hc
+    ws.Rows(r).RowHeight = 24
+    ws.Rows(r + 1).RowHeight = 18
+    r = r + 2
 
     ' Base incomes per segment (% denominator)
     ' Exclude 4110-001-001-000 (lump sum replaced by 4110NS individual clients)
@@ -632,7 +621,6 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
     ' ---- INCOMES (4110) — dynamic ----
     ws.Cells(r, 1).Value = "Incomes"
     ws.Cells(r, 1).Font.Bold = True
-    ws.Cells(r, 1).Font.Color = RGB(0, 100, 0)
     r = r + 1
 
     Dim totInc(0 To 4) As Double
@@ -664,7 +652,7 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
         End If
     Next c
 
-    Call WriteSumRow(ws, r, "Incomes Total", totInc, isConsolidado, C_INC, baseIncSeg)
+    Call WriteSumRow(ws, r, "Incomes Total", totInc, isConsolidado, C_SUBTOTAL, baseIncSeg)
     r = r + 1
     If isConsolidado Then Call WritePctRow(ws, r, "% of the Total Incomes", totInc(4), totInc(4))
     r = r + 2
@@ -672,7 +660,6 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
     ' ---- EXPENSES (6001-6008) ----
     ws.Cells(r, 1).Value = "Expenses"
     ws.Cells(r, 1).Font.Bold = True
-    ws.Cells(r, 1).Font.Color = RGB(150, 0, 0)
     r = r + 1
 
     Dim totExp(0 To 4) As Double
@@ -684,7 +671,7 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
             r = r + 1
         End If
     Next c
-    Call WriteSumRow(ws, r, "Expenses Total", totExp, isConsolidado, C_EXP, baseIncSeg)
+    Call WriteSumRow(ws, r, "Expenses Total", totExp, isConsolidado, C_SUBTOTAL, baseIncSeg)
     r = r + 1
     If isConsolidado Then Call WritePctRow(ws, r, "% of the Total Expenses", totExp(4), totInc(4))
     r = r + 2
@@ -692,13 +679,60 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
     ' ---- OPERATING PROFIT ----
     Dim totOp(0 To 4) As Double
     For s = 0 To 4: totOp(s) = totInc(s) - totExp(s): Next s
-    With ws.Range(ws.Cells(r, 1), ws.Cells(r, nCols))
-        .Font.Bold = True
-        .Interior.Color = C_OP
-    End With
     ws.Cells(r, 1).Value = "OPERATING PROFIT (OR LOSS) BEFORE ALLOCATIONS"
+    With ws.Range(ws.Cells(r, 1), ws.Cells(r, nCols)): .Font.Bold = True: End With
     Call WriteAmts(ws, r, totOp, isConsolidado, baseIncSeg)
     r = r + 2
+
+    ' ---- ALLOCATION BO & GMBH SERVICES ----
+    ' Entire BO Expenses Total is redistributed to CONS OPS/ING/DS by income share,
+    ' shown as two lines (GMBH SERVICES + the rest) to match the reference layout.
+    Dim totOpFinal(0 To 4) As Double
+    For s = 0 To 4: totOpFinal(s) = totOp(s): Next s
+
+    If Not isConsolidado Then
+        Dim allocBase As Double
+        allocBase = totInc(1) + totInc(2) + totInc(3)
+        Dim gmbhBO As Double
+        gmbhBO = LookupAmt("  P3 GLOBAL GMBH SERVICES", "6007", 0)
+        Dim allocPool As Double
+        allocPool = totExp(0) - gmbhBO
+
+        ws.Cells(r, 1).Value = "ALLOCATION BO & GMBH SERVICES"
+        ws.Cells(r, 1).Font.Bold = True
+        r = r + 1
+
+        Dim totAlloc(0 To 4) As Double, totGmbh(0 To 4) As Double
+        Dim ss As Long, pct As Double
+        For ss = 1 To 3
+            pct = SafePct(totInc(ss), allocBase)
+            totGmbh(ss) = gmbhBO * pct
+            totAlloc(ss) = allocPool * pct
+        Next ss
+        totGmbh(0) = -gmbhBO
+        totAlloc(0) = -allocPool
+
+        ws.Cells(r, 1).Value = "P3 GLOBAL GMBH SERVICES"
+        With ws.Range(ws.Cells(r, 1), ws.Cells(r, nCols)): .Interior.Color = C_SUBTOTAL: End With
+        Call WriteAmts(ws, r, totGmbh, isConsolidado, baseIncSeg)
+        r = r + 1
+
+        ws.Cells(r, 1).Value = "  ALLOCATION OF BACK OFFICE - EXPENSES"
+        With ws.Range(ws.Cells(r, 1), ws.Cells(r, nCols)): .Interior.Color = C_SUBTOTAL: End With
+        Call WriteAmts(ws, r, totAlloc, isConsolidado, baseIncSeg)
+        r = r + 2
+
+        For s = 0 To 3: totOpFinal(s) = totOpFinal(s) - totGmbh(s) - totAlloc(s): Next s
+
+        ws.Cells(r, 1).Value = "OPERATING PROFIT (OR LOSS) - After Allocation"
+        With ws.Range(ws.Cells(r, 1), ws.Cells(r, nCols))
+            .Font.Bold = True
+            .Interior.Color = C_HEADER
+            .Font.Color = C_WHITE
+        End With
+        Call WriteAmts(ws, r, totOpFinal, isConsolidado, baseIncSeg)
+        r = r + 2
+    End If
 
     ' ---- OTHER INCOMES (4210, 4310, 4510) ----
     ws.Cells(r, 1).Value = "Other Incomes"
@@ -711,7 +745,7 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
             r = r + 1
         End If
     Next c
-    Call WriteSumRow(ws, r, "Other Incomes Total", totOtherInc, isConsolidado, C_INC, baseIncSeg)
+    Call WriteSumRow(ws, r, "Other Incomes Total", totOtherInc, isConsolidado, C_SUBTOTAL, baseIncSeg)
     r = r + 2
 
     ' ---- OTHER EXPENSES (6009) ----
@@ -725,7 +759,7 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
             r = r + 1
         End If
     Next c
-    Call WriteSumRow(ws, r, "Other Expenses Total", totOtherExp, isConsolidado, C_EXP, baseIncSeg)
+    Call WriteSumRow(ws, r, "Other Expenses Total", totOtherExp, isConsolidado, C_SUBTOTAL, baseIncSeg)
     r = r + 2
 
     ' ---- ACCRUED TAXES (8000) ----
@@ -739,20 +773,18 @@ Private Sub EscribirHoja(ws As Worksheet, isConsolidado As Boolean, periodo As S
             r = r + 1
         End If
     Next c
-    Call WriteSumRow(ws, r, "Accrued Taxes Total", totTax, isConsolidado, C_EXP, baseIncSeg)
+    Call WriteSumRow(ws, r, "Accrued Taxes Total", totTax, isConsolidado, C_SUBTOTAL, baseIncSeg)
     r = r + 2
 
     ' ---- NET PROFIT ----
     Dim totNet(0 To 4) As Double
     For s = 0 To 4
-        totNet(s) = totOp(s) + totOtherInc(s) - totOtherExp(s) - totTax(s)
+        totNet(s) = totOpFinal(s) + totOtherInc(s) - totOtherExp(s) - totTax(s)
     Next s
-    Dim netColor As Long
-    netColor = IIf(totNet(4) >= 0, C_NET, RGB(255, 100, 100))
     With ws.Range(ws.Cells(r, 1), ws.Cells(r, nCols))
         .Font.Bold = True
-        .Font.Size = 12
-        .Interior.Color = netColor
+        .Interior.Color = C_HEADER
+        .Font.Color = C_WHITE
     End With
     ws.Cells(r, 1).Value = "NET PROFIT (OR LOSS)"
     Call WriteAmts(ws, r, totNet, isConsolidado, baseIncSeg)
