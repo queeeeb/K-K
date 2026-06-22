@@ -27,6 +27,8 @@ Private bInNatSales As Boolean
 ' =============================================
 
 Public Sub GenerarPL()
+    On Error GoTo ErrorHandler
+
     nAccts = 0
     Dim k As Long, s As Long
     For k = 0 To 299
@@ -51,12 +53,17 @@ Public Sub GenerarPL()
     Dim wsIn As Worksheet
     Set wsIn = wbIn.Sheets(1)
 
+    If Trim(CStr(wsIn.Cells(1, 1).Value)) = "" Then
+        Err.Raise vbObjectError + 1, , "El archivo seleccionado no tiene el formato esperado (Movimientos Auxiliares por Segmento de Negocio)."
+    End If
+
     Dim sPeriodo As String
     sPeriodo = Trim(CStr(wsIn.Cells(3, 1).Value))
     If sPeriodo = "" Then sPeriodo = Trim(CStr(wsIn.Cells(2, 1).Value))
 
     Call ParseInsumo(wsIn)
     wbIn.Close SaveChanges:=False
+    Set wbIn = Nothing
 
     Dim wbOut As Workbook
     Set wbOut = Workbooks.Add
@@ -80,6 +87,13 @@ Public Sub GenerarPL()
     Application.ScreenUpdating = True
     Application.DisplayAlerts = True
     MsgBox "P&L generated:" & vbCrLf & outPath, vbInformation, "K&K Consulting"
+    Exit Sub
+
+ErrorHandler:
+    Application.ScreenUpdating = True
+    Application.DisplayAlerts = True
+    If Not wbIn Is Nothing Then wbIn.Close SaveChanges:=False
+    MsgBox "No se pudo generar el P&L:" & vbCrLf & Err.Description, vbExclamation, "K&K Consulting"
 End Sub
 
 ' =============================================
