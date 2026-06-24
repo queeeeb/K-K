@@ -9,7 +9,7 @@
 
 ## 1. Resumen ejecutivo (para el cliente)
 
-Hoy, armar la hoja mensual del **Summary de Provisiones** es un trabajo manual: abrir cinco archivos, comparar provisiones contra facturas una por una, decidir cuáles se cancelan y cuáles siguen, copiar montos, convertir monedas y vaciar todo en la hoja del mes.
+Hoy, armar la hoja mensual del **Summary de Provisiones** es un trabajo manual: abrir cinco archivos, comparar provisiones contra facturas una por una, decidir cuáles se cancelan y cuáles siguen, copiar montos, convertir monedas y vaciar todo en la hoja del mes. El `.xlsm` **no tiene macros** — no hay ninguna automatización previa; todo el proceso se hace a mano hoy. Por eso se necesita un agente con IA: no solo para adaptarse a columnas que cambian de mes a mes, sino para automatizar de cero un proceso que hasta ahora es enteramente manual.
 
 Este agente hace ese trabajo en minutos. El usuario solo elige el mes, **revisa un resumen** y **aprueba**. El agente:
 
@@ -18,7 +18,7 @@ Este agente hace ese trabajo en minutos. El usuario solo elige el mes, **revisa 
 3. Hace el cruce de provisiones contra facturas (cancelar / mantener / agregar).
 4. Calcula todos los montos con precisión (el sistema calcula, nunca la IA).
 5. Muestra un resumen para aprobación — **nada se escribe sin confirmar**.
-6. Escribe la hoja del mes en el Summary **sin dañar fórmulas, macros ni el tablero KPI**.
+6. Escribe la hoja del mes en el Summary **sin dañar fórmulas ni el tablero KPI**.
 7. Sube el archivo actualizado a Drive y entrega un reporte.
 
 > Convierte un trabajo de horas en una revisión de minutos. La decisión final siempre es del usuario.
@@ -56,7 +56,7 @@ Segmentos activos:
 | Col | Campo | Col | Campo |
 |---|---|---|---|
 | A | Cotización | K | T/C Provisión |
-| B | Cierre (`Provision ` / `Cancelar`) | L | PROVISIÓN MXN |
+| B | Cierre (`Provision` / `Cancelar`, valores con espacios inconsistentes — normalizar con trim antes de comparar) | L | PROVISIÓN MXN |
 | C | AÑO | M | usd |
 | D | Periodo | N | MXN |
 | E | CC (3000/2000/7000) | O | EUR |
@@ -65,6 +65,8 @@ Segmentos activos:
 | H | Proyecto (código) | R | Referencia (facturas) |
 | I | Moneda | S | Comentarios |
 | J | Provisión (moneda original) | | |
+
+> **Nota:** en la práctica aparecen filas sueltas dentro de la Sección B con texto libre en la columna G (notas tipo "Se facturó junto con Mayo") y sin datos en el resto de columnas. El parser debe identificarlas y excluirlas — no son filas de provisión.
 
 ---
 
@@ -76,7 +78,7 @@ Segmentos activos:
 | **Disparador** | El usuario elige el mes y procesa desde la interfaz. |
 | **Origen de archivos** | El backend **lee de Google Drive** vía cuenta de servicio. |
 | **Hoja destino** | El agente **duplica la hoja del mes anterior**, limpia la Sección B y escribe los datos nuevos. |
-| **Motor de hojas `.xlsm`** | **Python + `openpyxl` con `keep_vba=True`** (única librería confiable para preservar macros y formato al duplicar). |
+| **Motor de hojas `.xlsm`** | **Python + `openpyxl`** (el archivo no tiene macros — no se requiere `keep_vba=True`; solo se preserva formato al duplicar). |
 | **Rol de la IA** | **La IA interpreta, el código calcula.** Claude Opus 4.8 resuelve lo difuso (mapeo de estructura, clasificación, moneda); Python hace toda la aritmética. |
 | **Archivos de muestra** | El cliente comparte el Summary y los 4 fuentes de un mes cerrado para fijar la estructura real. |
 
@@ -91,7 +93,7 @@ Segmentos activos:
 │   React + Vite                  ├── drive_client   (Google Drive API) │
 │   - Elegir mes                  ├── interpreters/  (Claude Opus 4.8)   │
 │   - Ver resumen Paso 7          ├── reconciler     (cálculo determin.) │
-│   - Botón Confirmar             ├── summary_writer (openpyxl + VBA)    │
+│   - Botón Confirmar             ├── summary_writer (openpyxl)          │
 │                                 └── audit_log                          │
 │   Caddy (HTTPS + sirve el front)                                       │
 └────────────────────┬───────────────────────────┬─────────────────────┘
@@ -103,7 +105,7 @@ Segmentos activos:
 ### Stack
 
 - **Backend:** Python + **FastAPI**.
-- **Manejo de `.xlsm`:** **`openpyxl`** (`keep_vba=True`).
+- **Manejo de `.xlsm`:** **`openpyxl`** (sin macros que preservar — solo formato).
 - **IA:** **Claude Opus 4.8** (`claude-opus-4-8`) vía SDK oficial de Anthropic, con *structured outputs* para JSON garantizado.
 - **Google Drive:** API oficial con **cuenta de servicio** (headless, sin OAuth de navegador).
 - **Frontend:** SPA ligera (React + Vite).
@@ -116,9 +118,9 @@ Segmentos activos:
 | Módulo | Qué hace | ¿Usa IA? |
 |---|---|---|
 | **`drive_client`** | Localiza, descarga y sube los 5 archivos por nombre (cuenta de servicio). | No |
-| **`interpreters/`** | Uno por fuente. Pasa a Claude el volcado de la hoja; Claude devuelve **el mapa de estructura** (fila de encabezado, columna del mes, columna de código de proyecto, moneda, STATUS, qué filas son proyectos). | **Sí** |
-| **`reconciler`** | Núcleo determinista. Cruza provisiones vs facturas por **código exacto**, clasifica Cancelar / Activa / Nueva, calcula montos (Provisión×T/C, TOTAL MXN, conversión por moneda). | No |
-| **`summary_writer`** | `openpyxl` con `keep_vba=True`: duplica la hoja del mes anterior, limpia Sección B, escribe filas 12↓, **nunca toca filas 1–11**. | No |
+| **`interpreters/`** | Uno por fuente (DS, Engineering, Consulting, Facturación). Pasa a Claude el volcado de la hoja; Claude devuelve **el mapa de estructura** (fila de encabezado, columna del mes, columna de código de proyecto, moneda, STATUS, qué filas son proyectos) **y el patrón de extracción del código de proyecto**, distinto en cada fuente: limpio en DS, con guión (`código-cliente-descripción`) en Engineering y Facturación, multilínea (`código\ncliente\ndescripción`) en Consulting Overview — además, en Overview cada proyecto ocupa un bloque de varias filas (una por consultor), con el monto final como suma de varias celdas "Total honorarios" dentro del bloque. | **Sí** |
+| **`reconciler`** | Núcleo determinista. Cruza provisiones vs facturas por **código de proyecto extraído** (no comparación literal de celda — cada fuente requiere su propio parser de código, ver `interpreters/`), clasifica Cancelar / Activa / Nueva, calcula montos (Provisión×T/C, TOTAL MXN, conversión por moneda). | No |
+| **`summary_writer`** | `openpyxl`: duplica la hoja del mes anterior, limpia Sección B, escribe filas 12↓, **nunca toca filas 1–11**. | No |
 | **`api`** | FastAPI: `POST /procesar` (Pasos 1–7) y `POST /confirmar` (Pasos 8–9). | No |
 | **`audit_log`** | Registra cada fila escrita (valor anterior / nuevo). | No |
 
@@ -144,7 +146,7 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 2. **Leer la hoja del mes anterior** del Summary → lista de provisiones activas (solo filas con `Cierre = "Provision"`; las `"Cancelar"` no se arrastran).
 3. **Interpretar Facturación** (`Detalle` + `Concentrado`): índice de proyectos facturados este mes (facturas con estado `"Sin pagar"` o `"Pagado"`; **las `"Cancelado"` no cuentan**) y totales por segmento.
 4. **Interpretar** las 3 fuentes de provisiones del mes (DS, Engineering, Consulting; en Consulting solo `STATUS = PROVISION`).
-5. **Reconciliar:** por cada provisión del mes anterior, si su código aparece facturado → `Cancelar` (+ referencia de factura); si no → sigue `Provision`. Detectar provisiones nuevas. **Calcular** todos los montos.
+5. **Reconciliar:** por cada provisión del mes anterior, si su código (extraído según el patrón de su fuente) aparece facturado → `Cancelar` (+ referencia de factura); si no → sigue `Provision`. Detectar provisiones nuevas. **Calcular** todos los montos.
 6. **Guardar** el plan de escritura en sesión (token).
 7. **Devolver** el **resumen del Paso 7**: canceladas / activas / nuevas + totales del Concentrado + alertas + `token`.
 
@@ -201,6 +203,8 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 | Hoja del mes a procesar ya tiene datos | Preguntar si sobreescribir o agregar. |
 | Factura encontrada pero estado `"Cancelado"` | Mantener `"Provision"` — no cancelar. |
 | Moneda sin T/C disponible | Dejar celda T/C vacía y reportar en alertas. |
+| Fuente sin columna de moneda (ej. Engineering) | No asumir moneda — reportar en alertas y pedir confirmación manual. |
+| Header de mes con año inconsistente (ej. DS: meses Jul-Dic etiquetados "2025" siendo en realidad de 2026) | Matchear el bloque por **nombre de mes**, nunca por el año del header. |
 | Discrepancia > 5% entre provisión fuente y Summary anterior | Alertar como anomalía antes de escribir. |
 
 ---
@@ -215,7 +219,8 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 6. Escribir la **provisión del mes**, no el acumulado.
 7. No duplicar filas: si el proyecto ya existe, actualizar su monto.
 8. Registrar cada fila escrita (valor anterior y nuevo).
-9. Preservar macros y formato del `.xlsm`.
+9. Preservar formato del `.xlsm` (no tiene macros que preservar).
+10. **Confidencialidad por defecto:** nunca subir, pegar ni compartir datos reales de P-TRES GROUP en servicios externos, repositorios o herramientas de terceros (ver sección 12).
 
 ---
 
@@ -235,6 +240,7 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 
 ## 12. Seguridad
 
+- **Confidencialidad de datos — regla de trabajo permanente:** ningún dato real de P-TRES GROUP (montos, clientes, proyectos, archivos completos) se sube a herramientas, servicios o repositorios externos al equipo de trabajo, ni se incluye en el código o en commits de este repositorio. Toda revisión, prueba o ejemplo se hace con archivos que quedan en máquinas locales del equipo. Esta regla aplica desde que se hace `git pull`/`git clone` de este repo en adelante — no requiere recordatorio en cada sesión.
 - Secretos vía variables de entorno: JSON de cuenta de servicio de Google + `ANTHROPIC_API_KEY`. Nunca en el código ni en el repositorio.
 - HTTPS mediante Caddy (Let's Encrypt) si se usa dominio.
 - La interfaz es de uso interno; se recomienda autenticación básica/contraseña compartida (a definir en el plan).
@@ -253,7 +259,8 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 
 ## 14. Pendientes antes de implementar
 
-1. Recibir los **archivos de muestra reales** (Summary `.xlsm` + 4 fuentes de un mes cerrado) para fijar la estructura del tablero KPI y validar que `openpyxl` preserva macros y formato al duplicar la hoja.
+1. ~~Recibir los archivos de muestra reales~~ — recibidos y revisados (Summary + Facturación + DS + Engineering + Consulting Overview de Mayo 2026). Estructura del tablero KPI confirmada; `openpyxl` sin `keep_vba` es suficiente (no hay macros).
 2. Confirmar el **mecanismo de autenticación** de la interfaz.
 3. Confirmar la **carpeta/estructura en Drive** donde viven los 5 archivos.
 4. Decidir el almacenamiento del **plan de escritura** entre `/procesar` y `/confirmar` (memoria, archivo temporal o Redis).
+5. **Confirmar con el cliente la moneda de las provisiones de Engineering** — el archivo fuente (`Provisiones_ES_*.xlsx`) no tiene columna de moneda.
