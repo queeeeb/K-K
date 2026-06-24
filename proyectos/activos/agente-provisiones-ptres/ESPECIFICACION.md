@@ -93,7 +93,7 @@ Segmentos activos:
 │   React + Vite                  ├── drive_client   (Google Drive API) │
 │   - Elegir mes                  ├── interpreters/  (Claude Opus 4.8)   │
 │   - Ver resumen Paso 7          ├── reconciler     (cálculo determin.) │
-│   - Botón Confirmar             ├── summary_writer (openpyxl)          │
+│   - Botón Confirmar/Rechazar    ├── summary_writer (openpyxl)          │
 │                                 └── audit_log                          │
 │   Caddy (HTTPS + sirve el front)                                       │
 └────────────────────┬───────────────────────────┬─────────────────────┘
@@ -118,11 +118,12 @@ Segmentos activos:
 | Módulo | Qué hace | ¿Usa IA? |
 |---|---|---|
 | **`drive_client`** | Localiza, descarga y sube los 5 archivos por nombre (cuenta de servicio). | No |
-| **`interpreters/`** | Uno por fuente (DS, Engineering, Consulting, Facturación). Pasa a Claude el volcado de la hoja; Claude devuelve **el mapa de estructura** (fila de encabezado, columna del mes, columna de código de proyecto, moneda, STATUS, qué filas son proyectos) **y el patrón de extracción del código de proyecto**, distinto en cada fuente: limpio en DS, con guión (`código-cliente-descripción`) en Engineering y Facturación, multilínea (`código\ncliente\ndescripción`) en Consulting Overview — además, en Overview cada proyecto ocupa un bloque de varias filas (una por consultor), con el monto final como suma de varias celdas "Total honorarios" dentro del bloque. | **Sí** |
+| **`interpreters/`** | Uno por fuente (DS, Engineering, Consulting, Facturación). Pasa a Claude el volcado de la hoja; Claude devuelve **el mapa de estructura** (fila de encabezado, columna del mes, columna de código de proyecto, moneda, STATUS, qué filas son proyectos) **y el patrón de extracción del código de proyecto**, distinto en cada fuente: limpio en DS, con guión (`código-cliente-descripción`) en Engineering y Facturación, multilínea (`código\ncliente\ndescripción`) en Consulting Overview — además, en Overview cada proyecto ocupa un bloque de varias filas (una por consultor), con el monto final como suma de varias celdas "Total honorarios" dentro del bloque. **En DS, cada mes es un bloque de 6 sub-columnas (PROVISION/NUM.FACTURA/MONTO/Diferencia+/Diferencia-/Acumulados); el valor que va al Summary es `PROVISION`, validado contra el cierre real de diciembre 2025 (6 proyectos, coincide exacto) — `MONTO` es lo facturado ese mes, no se usa aquí.** | **Sí** |
 | **`reconciler`** | Núcleo determinista. Cruza provisiones vs facturas por **código de proyecto extraído** (no comparación literal de celda — cada fuente requiere su propio parser de código, ver `interpreters/`), clasifica Cancelar / Activa / Nueva, calcula montos (Provisión×T/C, TOTAL MXN, conversión por moneda). | No |
 | **`summary_writer`** | `openpyxl`: duplica la hoja del mes anterior, limpia Sección B, escribe filas 12↓, **nunca toca filas 1–11**. | No |
 | **`api`** | FastAPI: `POST /procesar` (Pasos 1–7) y `POST /confirmar` (Pasos 8–9). | No |
 | **`audit_log`** | Registra cada fila escrita (valor anterior / nuevo). | No |
+| **`lock`** | Bloquea por mes: si ya hay un `/procesar` activo (sin confirmar/rechazar) para ese mes, rechaza el segundo intento avisando quién lo tiene abierto, y notifica al primer usuario que alguien más intentó entrar. Se libera al confirmar, rechazar o expirar el token. | No |
 
 ---
 
@@ -150,9 +151,13 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 6. **Guardar** el plan de escritura en sesión (token).
 7. **Devolver** el **resumen del Paso 7**: canceladas / activas / nuevas + totales del Concentrado + alertas + `token`.
 
+### `POST /rechazar { token }` — descarta el plan
+
+Botón "Rechazar" en la interfaz, junto al de "Confirmar". Invalida el token de sesión sin tocar el Summary — ningún archivo se descarga, modifica ni sube. Le da al usuario la certeza visible de que nada cambió si decide no aprobar el resumen del Paso 7.
+
 ### `POST /confirmar { token }` — Pasos 8 y 9
 
-8. Descargar el Summary, **duplicar la hoja del mes anterior**, limpiar Sección B (con autorización explícita), escribir las filas (existentes primero, nuevas al final), respetar el T/C del mes anterior para las existentes, **sin tocar filas 1–11**.
+8. Descargar el Summary, **duplicar la hoja del mes anterior**, limpiar Sección B (con autorización explícita), escribir las filas (existentes primero, nuevas al final), respetar el T/C original para las existentes (no se revalúa); para las **nuevas**, usar el T/C del tablero KPI de la hoja del mes en curso (filas 6–8, capturado manualmente por el usuario antes de procesar — validado contra el cierre de diciembre 2025: el T/C de las provisiones nuevas de ese mes coincide exacto con el del tablero KPI, no con ningún T/C de las fuentes). **Sin tocar filas 1–11**.
 9. Subir el archivo a Drive, registrar el log y **devolver el reporte final** (filas canceladas / provisiones / nuevas / total + pendientes manuales).
 
 ---
@@ -167,7 +172,7 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
   "token": "uuid-de-sesion",
   "mes": "2026_May",
   "canceladas": [ { "cc": 3000, "cliente": "...", "proyecto": "...", "monto_mxn": 0, "referencia": "C-2026-00109" } ],
-  "activas":    [ { "cc": 3000, "cliente": "...", "proyecto": "...", "monto_mxn": 0 } ],
+  "activas":    [ { "cc": 3000, "cliente": "...", "proyecto": "...", "monto_mxn_anterior": 0, "monto_mxn": 0 } ],
   "nuevas":     [ { "cc": 3000, "cliente": "...", "proyecto": "...", "monto_mxn": 0 } ],
   "totales": {
     "CONSULTING":  { "facturacion": 0, "canceladas": 0, "total": 0 },
@@ -205,7 +210,8 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 | Moneda sin T/C disponible | Dejar celda T/C vacía y reportar en alertas. |
 | Fuente sin columna de moneda (ej. Engineering) | No asumir moneda — reportar en alertas y pedir confirmación manual. |
 | Header de mes con año inconsistente (ej. DS: meses Jul-Dic etiquetados "2025" siendo en realidad de 2026) | Matchear el bloque por **nombre de mes**, nunca por el año del header. |
-| Discrepancia > 5% entre provisión fuente y Summary anterior | Alertar como anomalía antes de escribir. |
+| Discrepancia entre provisión fuente y Summary anterior | **Umbral fijo de 5% descartado** — validado contra datos reales de DS (Ene-May 2026): variaciones normales de -76% a +320% mes a mes por proyectos que arrancan/terminan. Un 5% fijo generaría alerta en casi toda fila con movimiento real. Pendiente definir con el cliente un criterio que no sea ruido (ver sección 14). |
+| Otro usuario ya tiene un `/procesar` activo (sin confirmar/rechazar) para el mismo mes | **Bloquear** el segundo `/procesar` con mensaje claro de quién lo tiene abierto, **y avisar al primer usuario** que alguien más intentó entrar a ese mes — para que ambos lo tengan en cuenta antes de confirmar. |
 
 ---
 
@@ -217,7 +223,7 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 4. Una factura `"Cancelado"` no cuenta como facturada.
 5. No asumir monedas ni T/C; si falta, dejar vacío y reportar.
 6. Escribir la **provisión del mes**, no el acumulado.
-7. No duplicar filas: si el proyecto ya existe, actualizar su monto.
+7. No duplicar filas: si el proyecto ya existe, actualizar su monto — y mostrar monto anterior vs. nuevo en el resumen del Paso 7 para que el usuario apruebe el cambio a sabiendas.
 8. Registrar cada fila escrita (valor anterior y nuevo).
 9. Preservar formato del `.xlsm` (no tiene macros que preservar).
 10. **Confidencialidad por defecto:** nunca subir, pegar ni compartir datos reales de P-TRES GROUP en servicios externos, repositorios o herramientas de terceros (ver sección 12).
@@ -268,5 +274,7 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 3. ~~¿Existe archivo de Back Office?~~ — confirmado que no, y no existirá (ver sección 13).
 4. Confirmar el **mecanismo de autenticación** de la interfaz.
 5. Confirmar la **carpeta/estructura en Drive** donde viven los 5 archivos.
-6. Decidir el almacenamiento del **plan de escritura** entre `/procesar` y `/confirmar` (memoria, archivo temporal o Redis).
+6. Decidir el almacenamiento del **plan de escritura** entre `/procesar` y `/confirmar` (memoria, archivo temporal o Redis) — debe poder guardar también el bloqueo por mes del módulo `lock` (sección 5), así que conviene resolver ambos con el mismo mecanismo.
 7. **Confirmar con el cliente la moneda de las provisiones de Engineering** — el archivo fuente (`Provisiones_ES_*.xlsx`) no tiene columna de moneda.
+8. **Provisiones "reabiertas":** el diseño actual solo compara contra la hoja del mes anterior (paso 2). Si un proyecto se canceló hace varios meses y vuelve a aparecer con `STATUS/PROVISION` en una fuente, hoy se trataría como provisión "nueva" sin indicar que ya tuvo historial. Pendiente de hablar con el cliente: ¿tratarlo como nueva tal cual, o el agente debe buscar en hojas anteriores y avisar que es una reapertura?
+9. **Criterio de alerta por discrepancia de monto:** el umbral fijo de 5% queda descartado (genera ruido — ver sección 9). Pendiente definir con el cliente un criterio razonable, ej. combinar % alto con un mínimo en monto absoluto, o no alertar y confiar en el delta anterior/nuevo que ya se muestra en el resumen del Paso 7.
