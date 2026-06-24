@@ -5,7 +5,7 @@ Plataforma que automatiza 3 entregables mensuales de P3 a partir de archivos en 
 | Pipeline | Qué genera | Estado |
 |---|---|---|
 | **Summary** (`pipelines/summary/`) | Hoja mensual de Provisiones (`2026_Summary_provision.xlsm`) | Diseño aprobado — ver `ESPECIFICACION.md`. Primer pipeline a construir. |
-| **P&L** (`pipelines/pl/`) | Estado de resultados mensual (hoy existe como macro VBA en `pl-automatizacion/`) | Pendiente de diseño — se porta la lógica ya validada de la macro al agente. |
+| **P&L** (`pipelines/pl/`) | Estado de resultados mensual (hoy existe como macro VBA en `pl-automatizacion/`) | Diseño inicial — ver `ESPECIFICACION.md`. Porta la lógica validada del macro, pero la IA interpreta/clasifica todo dinámicamente (no catálogos congelados). |
 | **Cash Flow** (`pipelines/cashflow/`) | Estatus de cobranza/AR a partir de Facturación | Pendiente de diseño — falta archivo de referencia del cliente. |
 
 ## Por qué una plataforma y no 3 agentes sueltos
