@@ -36,7 +36,7 @@ Segmentos activos:
 | 3000 | CONSULTING (CONS OPS) | `PROVISIONES_Overview_Projects_YYYY_MMM.xlsx` |
 | 2000 | ENGINEERING (ING) | `Provisiones_ES_MMMYY.xlsx` |
 | 7000 | DIGITAL SOLUTIONS (DS) | `FORMATO_PROVISIONES_P3_DS_YYYY_MMMYY.xlsx` |
-| 1000/BO | BACK OFFICE | No aplica por ahora |
+| 1000/BO | BACK OFFICE | No aplica — BO es el área administrativa, solo genera gastos, nunca ingresos. No habrá archivo fuente de provisiones para este segmento (confirmado por el cliente). |
 
 ### Archivos que maneja el agente
 
@@ -146,7 +146,7 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 2. **Leer la hoja del mes anterior** del Summary → lista de provisiones activas (solo filas con `Cierre = "Provision"`; las `"Cancelar"` no se arrastran).
 3. **Interpretar Facturación** (`Detalle` + `Concentrado`): índice de proyectos facturados este mes (facturas con estado `"Sin pagar"` o `"Pagado"`; **las `"Cancelado"` no cuentan**) y totales por segmento.
 4. **Interpretar** las 3 fuentes de provisiones del mes (DS, Engineering, Consulting; en Consulting solo `STATUS = PROVISION`).
-5. **Reconciliar:** por cada provisión del mes anterior, si su código (extraído según el patrón de su fuente) aparece facturado → `Cancelar` (+ referencia de factura); si no → sigue `Provision`. Detectar provisiones nuevas. **Calcular** todos los montos.
+5. **Reconciliar:** por cada provisión del mes anterior, si su código (extraído según el patrón de su fuente) aparece facturado → cambiar su estatus a `Cancelar` en la misma fila (+ referencia de factura) — **confirmado por el cliente: detección por número de proyecto, no se agregan filas nuevas para la cancelación**; si no → sigue `Provision`. Detectar provisiones nuevas. **Calcular** todos los montos.
 6. **Guardar** el plan de escritura en sesión (token).
 7. **Devolver** el **resumen del Paso 7**: canceladas / activas / nuevas + totales del Concentrado + alertas + `token`.
 
@@ -248,19 +248,25 @@ Luego **Python lee los valores directamente de esas celdas** y ejecuta toda la a
 
 ---
 
-## 13. Fuera de alcance (por ahora)
+## 13. Fuera de alcance
 
-- Segmento **Back Office (1000/BO)**.
+- Segmento **Back Office (1000/BO)** — permanente, no "por ahora": BO es el área administrativa, solo genera gastos, nunca ingresos, no tendrá archivo fuente de provisiones.
 - Edición de hojas de meses anteriores.
 - Captura automática de tipos de cambio del tablero KPI (sigue siendo manual).
 - Disparo automático por subida de archivo a Drive (posible mejora futura: notificar a la interfaz cuando llegue la Facturación).
+
+## 13.1 Mejoras opcionales (no bloqueantes)
+
+- **Columna de Acumulados (saldo pendiente) en el Summary**: el cliente confirmó que hoy el Summary solo toma la Provisión del mes actual de cada fuente (no el acumulado, coincide con el invariante 6), pero ofreció que se agregue una columna con el Acumulados si es viable. No es requisito — evaluar en el plan de implementación si se agrega sin afectar la Sección B actual.
 
 ---
 
 ## 14. Pendientes antes de implementar
 
 1. ~~Recibir los archivos de muestra reales~~ — recibidos y revisados (Summary + Facturación + DS + Engineering + Consulting Overview de Mayo 2026). Estructura del tablero KPI confirmada; `openpyxl` sin `keep_vba` es suficiente (no hay macros).
-2. Confirmar el **mecanismo de autenticación** de la interfaz.
-3. Confirmar la **carpeta/estructura en Drive** donde viven los 5 archivos.
-4. Decidir el almacenamiento del **plan de escritura** entre `/procesar` y `/confirmar` (memoria, archivo temporal o Redis).
-5. **Confirmar con el cliente la moneda de las provisiones de Engineering** — el archivo fuente (`Provisiones_ES_*.xlsx`) no tiene columna de moneda.
+2. ~~Mecanismo de detección de cancelación~~ — confirmado por el cliente: por número de proyecto, cambiando el estatus en la misma fila (no se agregan filas nuevas).
+3. ~~¿Existe archivo de Back Office?~~ — confirmado que no, y no existirá (ver sección 13).
+4. Confirmar el **mecanismo de autenticación** de la interfaz.
+5. Confirmar la **carpeta/estructura en Drive** donde viven los 5 archivos.
+6. Decidir el almacenamiento del **plan de escritura** entre `/procesar` y `/confirmar` (memoria, archivo temporal o Redis).
+7. **Confirmar con el cliente la moneda de las provisiones de Engineering** — el archivo fuente (`Provisiones_ES_*.xlsx`) no tiene columna de moneda.
