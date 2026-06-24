@@ -3,3 +3,6 @@
 *.xlsm
 *.csv
 *.pdf
+__pycache__/
+*.pyc
+.venv/
