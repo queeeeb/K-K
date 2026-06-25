@@ -1,4 +1,5 @@
 import argparse
+import getpass
 import os
 import sys
 
@@ -11,13 +12,14 @@ from core.db import get_connection, init_db
 def main() -> None:
     parser = argparse.ArgumentParser(description="Crea un usuario para el Agente Financiero P3")
     parser.add_argument("username")
-    parser.add_argument("password")
     args = parser.parse_args()
+
+    password = getpass.getpass("Contraseña: ")
 
     db_path = os.environ.get("AGENTE_DB_PATH", "agente.db")
     conn = get_connection(db_path)
     init_db(conn)
-    auth.crear_usuario(conn, args.username, args.password)
+    auth.crear_usuario(conn, args.username, password)
     print(f"Usuario '{args.username}' creado.")
 
 

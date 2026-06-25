@@ -10,9 +10,10 @@ class FileNotFoundOnDrive(Exception):
 
 
 def find_file_id(service, name_pattern: str, folder_id: str) -> str:
+    safe_name = name_pattern.replace("\\", "\\\\").replace("'", "\\'")
     response = (
         service.files()
-        .list(q=f"'{folder_id}' in parents and name = '{name_pattern}'", fields="files(id, name)")
+        .list(q=f"'{folder_id}' in parents and name = '{safe_name}'", fields="files(id, name)")
         .execute()
     )
     files = response.get("files", [])

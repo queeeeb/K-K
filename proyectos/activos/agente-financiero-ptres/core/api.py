@@ -1,10 +1,14 @@
 import json
 import os
+import re
 import uuid
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from core import audit_log, auth, registry
 from core.db import get_connection, init_db
@@ -24,7 +28,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
-app = FastAPI(title="Agente Financiero P3")
+limiter = Limiter(key_func=get_remote_address)
+app = FastAPI(title="Agente Financiero P3", docs_url=None, redoc_url=None)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 _bearer_scheme = HTTPBearer()
 
 
@@ -51,7 +58,8 @@ def health() -> dict[str, str]:
 
 
 @app.post("/login")
-def login(body: LoginRequest):
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginRequest):
     conn = _conn()
     try:
         token = auth.autenticar(conn, body.usuario, body.password)
@@ -60,8 +68,14 @@ def login(body: LoginRequest):
     return {"access_token": token, "token_type": "bearer", "expires_in": auth.TOKEN_EXPIRE_HOURS * 3600}
 
 
+def _validar_pipeline(pipeline: str) -> None:
+    if not re.fullmatch(r"[a-z0-9_-]+", pipeline):
+        raise HTTPException(status_code=400, detail="Pipeline inválido")
+
+
 @app.post("/procesar/{pipeline}")
 def procesar(pipeline: str, body: ProcesarRequest, usuario_autenticado: str = Depends(get_current_user)):
+    _validar_pipeline(pipeline)
     spec = registry.get(pipeline)
     conn = _conn()
     token = str(uuid.uuid4())
@@ -86,6 +100,7 @@ def procesar(pipeline: str, body: ProcesarRequest, usuario_autenticado: str = De
 
 @app.post("/confirmar/{pipeline}")
 def confirmar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depends(get_current_user)):
+    _validar_pipeline(pipeline)
     spec = registry.get(pipeline)
     conn = _conn()
 
@@ -99,7 +114,8 @@ def confirmar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depe
     reporte = spec.write(plan["detalle"], archivo_destino=None)
 
     audit_log.log_write(
-        conn, pipeline, row["mes"], fila="*", valor_anterior=None, valor_nuevo=json.dumps(reporte)
+        conn, pipeline, row["mes"], fila="*", valor_anterior=None,
+        valor_nuevo=json.dumps(reporte), usuario=usuario_autenticado,
     )
     release_lock(conn, pipeline, row["mes"])
     conn.execute("DELETE FROM plans WHERE token = ?", (body.token,))
@@ -110,6 +126,7 @@ def confirmar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depe
 
 @app.post("/rechazar/{pipeline}")
 def rechazar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depends(get_current_user)):
+    _validar_pipeline(pipeline)
     conn = _conn()
     row = conn.execute(
         "SELECT mes FROM plans WHERE token = ? AND pipeline = ?", (body.token, pipeline)

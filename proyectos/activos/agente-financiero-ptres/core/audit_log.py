@@ -10,6 +10,7 @@ def _ensure_table(conn: sqlite3.Connection) -> None:
             pipeline TEXT NOT NULL,
             mes TEXT NOT NULL,
             fila TEXT NOT NULL,
+            usuario TEXT,
             valor_anterior TEXT,
             valor_nuevo TEXT NOT NULL,
             created_at TEXT NOT NULL
@@ -26,12 +27,13 @@ def log_write(
     fila: str,
     valor_anterior: str | None,
     valor_nuevo: str,
+    usuario: str | None = None,
 ) -> None:
     _ensure_table(conn)
     conn.execute(
-        "INSERT INTO audit_log (pipeline, mes, fila, valor_anterior, valor_nuevo, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (pipeline, mes, fila, valor_anterior, valor_nuevo, datetime.now(timezone.utc).isoformat()),
+        "INSERT INTO audit_log (pipeline, mes, fila, usuario, valor_anterior, valor_nuevo, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (pipeline, mes, fila, usuario, valor_anterior, valor_nuevo, datetime.now(timezone.utc).isoformat()),
     )
     conn.commit()
 
@@ -39,7 +41,7 @@ def log_write(
 def get_log(conn: sqlite3.Connection, pipeline: str, mes: str) -> list[dict]:
     _ensure_table(conn)
     rows = conn.execute(
-        "SELECT fila, valor_anterior, valor_nuevo, created_at FROM audit_log "
+        "SELECT fila, usuario, valor_anterior, valor_nuevo, created_at FROM audit_log "
         "WHERE pipeline = ? AND mes = ? ORDER BY id ASC",
         (pipeline, mes),
     ).fetchall()

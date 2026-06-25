@@ -9,7 +9,8 @@ def test_crear_usuario_script_inserta_usuario(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTE_DB_PATH", str(db_path))
 
     resultado = subprocess.run(
-        [sys.executable, "scripts/crear_usuario.py", "montserrat", "clave-segura-123"],
+        [sys.executable, "scripts/crear_usuario.py", "montserrat"],
+        input="clave-segura-123\n",
         env={**__import__("os").environ, "AGENTE_DB_PATH": str(db_path)},
         capture_output=True,
         text=True,

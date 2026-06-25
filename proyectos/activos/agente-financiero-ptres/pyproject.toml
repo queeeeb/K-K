@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.9",
     "pyjwt>=2.9",
     "bcrypt>=4.2",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]
