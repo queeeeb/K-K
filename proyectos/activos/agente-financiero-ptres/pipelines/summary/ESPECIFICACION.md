@@ -272,7 +272,7 @@ Botón "Rechazar" en la interfaz, junto al de "Confirmar". Invalida el token de 
 1. ~~Recibir los archivos de muestra reales~~ — recibidos y revisados (Summary + Facturación + DS + Engineering + Consulting Overview de Mayo 2026). Estructura del tablero KPI confirmada; `openpyxl` sin `keep_vba` es suficiente (no hay macros).
 2. ~~Mecanismo de detección de cancelación~~ — confirmado por el cliente: por número de proyecto, cambiando el estatus en la misma fila (no se agregan filas nuevas).
 3. ~~¿Existe archivo de Back Office?~~ — confirmado que no, y no existirá (ver sección 13).
-4. Confirmar el **mecanismo de autenticación** de la interfaz.
+4. ~~Confirmar el **mecanismo de autenticación** de la interfaz~~ — implementado: JWT (HS256, 8h), usuarios individuales por persona en tabla SQLite, `POST /login`, script `scripts/crear_usuario.py`. Ver `core/auth.py` y README.
 5. Confirmar la **carpeta/estructura en Drive** donde viven los 5 archivos.
 6. Decidir el almacenamiento del **plan de escritura** entre `/procesar` y `/confirmar` (memoria, archivo temporal o Redis) — debe poder guardar también el bloqueo por mes del módulo `lock` (sección 5), así que conviene resolver ambos con el mismo mecanismo.
 7. **Confirmar con el cliente la moneda de las provisiones de Engineering** — el archivo fuente (`Provisiones_ES_*.xlsx`) no tiene columna de moneda.
