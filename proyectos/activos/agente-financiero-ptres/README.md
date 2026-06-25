@@ -22,3 +22,12 @@ Hoy `core/` está vacío: el contrato (`PipelineSpec`) se va a definir extrayén
 ## Relación con otros proyectos del repo
 
 - `pl-automatizacion/` — macro VBA de P&L, **proyecto cerrado y separado**, no se modifica. Es la referencia de lógica de negocio para construir `pipelines/pl/`, no se fusiona con esta plataforma.
+
+## Autenticación
+
+Todos los endpoints de escritura (`/procesar/{pipeline}`, `/confirmar/{pipeline}`, `/rechazar/{pipeline}`) requieren un JWT en el header `Authorization: Bearer <token>`.
+
+- **Obtener un token:** `POST /login` con `{"usuario": "...", "password": "..."}` → `{"access_token": "...", "token_type": "bearer", "expires_in": 28800}` (8 horas).
+- **Crear un usuario nuevo:** `uv run python scripts/crear_usuario.py <username> <password>` — no hay endpoint público de registro, a propósito.
+- **Variable de entorno requerida en el servidor:** `AGENTE_JWT_SECRET` — secreto de firma del JWT, nunca con valor por default. Generar uno con `python -c "import secrets; print(secrets.token_hex(32))"` y guardarlo fuera del repo.
+- Cada persona de P3 tiene su propio usuario; el campo `locked_by` del módulo `lock` se llena con el usuario autenticado, no con un campo libre del request.
