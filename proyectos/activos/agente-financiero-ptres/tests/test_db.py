@@ -26,3 +26,40 @@ def test_get_connection_returns_row_factory_dict(tmp_path):
     conn.commit()
     row = conn.execute("SELECT * FROM plans WHERE token = ?", ("tok-1",)).fetchone()
     assert row["pipeline"] == "summary"
+
+
+def test_init_db_creates_usuarios_table():
+    conn = get_connection(":memory:")
+    init_db(conn)
+
+    conn.execute(
+        "INSERT INTO usuarios (username, password_hash, created_at) VALUES (?, ?, datetime('now'))",
+        ("luis", "hash-falso"),
+    )
+    conn.commit()
+
+    row = conn.execute("SELECT username FROM usuarios WHERE username = ?", ("luis",)).fetchone()
+    assert row["username"] == "luis"
+
+
+def test_usuarios_username_is_unique():
+    conn = get_connection(":memory:")
+    init_db(conn)
+
+    conn.execute(
+        "INSERT INTO usuarios (username, password_hash, created_at) VALUES (?, ?, datetime('now'))",
+        ("luis", "hash-falso"),
+    )
+    conn.commit()
+
+    try:
+        conn.execute(
+            "INSERT INTO usuarios (username, password_hash, created_at) VALUES (?, ?, datetime('now'))",
+            ("luis", "otro-hash"),
+        )
+        conn.commit()
+        raised = False
+    except sqlite3.IntegrityError:
+        raised = True
+
+    assert raised
