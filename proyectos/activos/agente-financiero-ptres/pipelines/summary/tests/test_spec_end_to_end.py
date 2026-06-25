@@ -4,7 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 
-from core.api import app
+from core import auth
+from core.api import _conn, app
 from core.registry import clear_registry, register
 from pipelines.summary.spec import build_summary_spec
 
@@ -14,6 +15,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTE_DB_PATH", str(tmp_path / "test.db"))
+    monkeypatch.setenv("AGENTE_JWT_SECRET", "secreto-de-prueba-no-real-32bytes!!")
     clear_registry()
 
     destino = tmp_path / "summary_mayo.xlsm"
@@ -39,20 +41,24 @@ def client(tmp_path, monkeypatch):
         hoja_mes_nuevo="2026_May",
     )
     register(spec)
-    yield TestClient(app), destino
+    conn = _conn()
+    auth.crear_usuario(conn, "luis", "clave123")
+    token = auth.create_access_token("luis")
+    headers = {"Authorization": f"Bearer {token}"}
+    yield TestClient(app), destino, headers
     clear_registry()
 
 
 def test_procesar_confirmar_escribe_archivo(client):
-    test_client, destino = client
+    test_client, destino, headers = client
 
-    procesar = test_client.post("/procesar/summary", json={"mes": "2026_May", "usuario": "luis"})
+    procesar = test_client.post("/procesar/summary", json={"mes": "2026_May"}, headers=headers)
     assert procesar.status_code == 200
     resumen = procesar.json()["resumen"]
     assert len(resumen["canceladas"]) == 1
     assert len(resumen["nuevas"]) == 1
 
-    confirmar = test_client.post("/confirmar/summary", json={"token": procesar.json()["token"]})
+    confirmar = test_client.post("/confirmar/summary", json={"token": procesar.json()["token"]}, headers=headers)
     assert confirmar.status_code == 200
 
     wb = load_workbook(destino)

@@ -2,24 +2,30 @@ import json
 import os
 import uuid
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-from core import audit_log, registry
+from core import audit_log, auth, registry
 from core.db import get_connection, init_db
 from core.lock import LockHeldError, acquire_lock, release_lock
 
 
 class ProcesarRequest(BaseModel):
     mes: str
-    usuario: str
 
 
 class TokenRequest(BaseModel):
     token: str
 
 
+class LoginRequest(BaseModel):
+    usuario: str
+    password: str
+
+
 app = FastAPI(title="Agente Financiero P3")
+_bearer_scheme = HTTPBearer()
 
 
 def _db_path() -> str:
@@ -32,19 +38,36 @@ def _conn():
     return conn
 
 
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme)) -> str:
+    try:
+        return auth.decode_access_token(credentials.credentials)
+    except auth.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.post("/login")
+def login(body: LoginRequest):
+    conn = _conn()
+    try:
+        token = auth.autenticar(conn, body.usuario, body.password)
+    except auth.InvalidCredentialsError:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+    return {"access_token": token, "token_type": "bearer", "expires_in": auth.TOKEN_EXPIRE_HOURS * 3600}
+
+
 @app.post("/procesar/{pipeline}")
-def procesar(pipeline: str, body: ProcesarRequest):
+def procesar(pipeline: str, body: ProcesarRequest, usuario_autenticado: str = Depends(get_current_user)):
     spec = registry.get(pipeline)
     conn = _conn()
     token = str(uuid.uuid4())
 
     try:
-        acquire_lock(conn, pipeline, body.mes, token=token, locked_by=body.usuario)
+        acquire_lock(conn, pipeline, body.mes, token=token, locked_by=usuario_autenticado)
     except LockHeldError as exc:
         raise HTTPException(status_code=409, detail=f"Locked by {exc.locked_by}")
 
@@ -62,7 +85,7 @@ def procesar(pipeline: str, body: ProcesarRequest):
 
 
 @app.post("/confirmar/{pipeline}")
-def confirmar(pipeline: str, body: TokenRequest):
+def confirmar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depends(get_current_user)):
     spec = registry.get(pipeline)
     conn = _conn()
 
@@ -86,7 +109,7 @@ def confirmar(pipeline: str, body: TokenRequest):
 
 
 @app.post("/rechazar/{pipeline}")
-def rechazar(pipeline: str, body: TokenRequest):
+def rechazar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depends(get_current_user)):
     conn = _conn()
     row = conn.execute(
         "SELECT mes FROM plans WHERE token = ? AND pipeline = ?", (body.token, pipeline)
