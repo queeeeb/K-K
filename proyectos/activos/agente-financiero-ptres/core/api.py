@@ -134,6 +134,10 @@ def rechazar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depen
     if row is None:
         raise HTTPException(status_code=404, detail="Token not found")
 
+    audit_log.log_write(
+        conn, pipeline, row["mes"], fila="*", valor_anterior=None,
+        valor_nuevo="rechazado", usuario=usuario_autenticado,
+    )
     release_lock(conn, pipeline, row["mes"])
     conn.execute("DELETE FROM plans WHERE token = ?", (body.token,))
     conn.commit()
