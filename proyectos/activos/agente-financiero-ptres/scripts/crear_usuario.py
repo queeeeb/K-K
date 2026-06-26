@@ -14,7 +14,10 @@ def main() -> None:
     parser.add_argument("username")
     args = parser.parse_args()
 
-    password = getpass.getpass("Contraseña: ")
+    if sys.stdin.isatty():
+        password = getpass.getpass("Contraseña: ")
+    else:
+        password = sys.stdin.readline().rstrip("\n")
 
     db_path = os.environ.get("AGENTE_DB_PATH", "agente.db")
     conn = get_connection(db_path)

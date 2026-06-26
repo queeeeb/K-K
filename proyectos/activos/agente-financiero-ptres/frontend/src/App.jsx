@@ -13,7 +13,7 @@ import Rechazado from './components/Rechazado'
 
 export const PIPELINES = [
   { id: 'summary',  nombre: 'Summary',   full: 'Summary · Provisiones',      desc: 'Hoja mensual de provisiones',   icon: FileSpreadsheet, estado: 'activo' },
-  { id: 'pl',       nombre: 'P&L',       full: 'P&L · Estado de resultados', desc: 'Estado de resultados mensual',  icon: TrendingUp,      estado: 'construccion' },
+  { id: 'pl',       nombre: 'P&L',       full: 'P&L · Estado de resultados', desc: 'Estado de resultados mensual',  icon: TrendingUp,      estado: 'activo' },
   { id: 'cashflow', nombre: 'Cash Flow', full: 'Cash Flow · Cobranza',       desc: 'Estatus de cobranza / AR',      icon: Wallet,          estado: 'proximamente' },
 ]
 
