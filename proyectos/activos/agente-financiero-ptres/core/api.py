@@ -68,15 +68,18 @@ def login(request: Request, body: LoginRequest):
     return {"access_token": token, "token_type": "bearer", "expires_in": auth.TOKEN_EXPIRE_HOURS * 3600}
 
 
-def _validar_pipeline(pipeline: str) -> None:
+def _validar_pipeline(pipeline: str) -> str:
     if not re.fullmatch(r"[a-z0-9_-]+", pipeline):
         raise HTTPException(status_code=400, detail="Pipeline inválido")
+    try:
+        return registry.get(pipeline)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Pipeline '{pipeline}' no registrado")
 
 
 @app.post("/procesar/{pipeline}")
 def procesar(pipeline: str, body: ProcesarRequest, usuario_autenticado: str = Depends(get_current_user)):
-    _validar_pipeline(pipeline)
-    spec = registry.get(pipeline)
+    spec = _validar_pipeline(pipeline)
     conn = _conn()
     token = str(uuid.uuid4())
 
@@ -85,23 +88,26 @@ def procesar(pipeline: str, body: ProcesarRequest, usuario_autenticado: str = De
     except LockHeldError as exc:
         raise HTTPException(status_code=409, detail=f"Locked by {exc.locked_by}")
 
-    raw_files = {source: None for source in spec.sources}
-    estructura = spec.interpret(raw_files)
-    plan = spec.calculate(estructura, estado_anterior=None)
+    try:
+        raw_files = {source: None for source in spec.sources}
+        estructura = spec.interpret(raw_files)
+        plan = spec.calculate(estructura, estado_anterior=None)
 
-    conn.execute(
-        "INSERT INTO plans (token, pipeline, mes, plan_json, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
-        (token, pipeline, body.mes, json.dumps(plan)),
-    )
-    conn.commit()
+        conn.execute(
+            "INSERT INTO plans (token, pipeline, mes, plan_json, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
+            (token, pipeline, body.mes, json.dumps(plan)),
+        )
+        conn.commit()
+    except Exception:
+        release_lock(conn, pipeline, body.mes)
+        raise
 
     return {"token": token, "resumen": plan["resumen"]}
 
 
 @app.post("/confirmar/{pipeline}")
 def confirmar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depends(get_current_user)):
-    _validar_pipeline(pipeline)
-    spec = registry.get(pipeline)
+    spec = _validar_pipeline(pipeline)
     conn = _conn()
 
     row = conn.execute(
@@ -111,7 +117,13 @@ def confirmar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depe
         raise HTTPException(status_code=404, detail="Token not found")
 
     plan = json.loads(row["plan_json"])
-    reporte = spec.write(plan["detalle"], archivo_destino=None)
+    try:
+        reporte = spec.write(plan["detalle"], archivo_destino=None)
+    except Exception:
+        release_lock(conn, pipeline, row["mes"])
+        conn.execute("DELETE FROM plans WHERE token = ?", (body.token,))
+        conn.commit()
+        raise
 
     audit_log.log_write(
         conn, pipeline, row["mes"], fila="*", valor_anterior=None,

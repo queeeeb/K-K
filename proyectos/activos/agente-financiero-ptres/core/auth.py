@@ -49,7 +49,7 @@ def create_access_token(username: str) -> str:
 def decode_access_token(token: str) -> str:
     try:
         payload = jwt.decode(token, _secret_key(), algorithms=[ALGORITHM])
-    except jwt.PyJWTError as exc:
+    except (jwt.PyJWTError, KeyError) as exc:
         raise InvalidTokenError() from exc
     return payload["sub"]
 
