@@ -8,7 +8,12 @@ def extraer_codigo(texto: str, formato: str) -> str:
     raise ValueError(f"Formato de código desconocido: {formato}")
 
 
-def reconciliar(provisiones_mes_anterior: list[dict], facturas_mes: list[dict], provisiones_nuevas: list[dict]) -> dict:
+def reconciliar(
+    provisiones_mes_anterior: list[dict],
+    facturas_mes: list[dict],
+    provisiones_nuevas: list[dict],
+    alertas: list[str] | None = None,
+) -> dict:
     facturados = {
         extraer_codigo(f["proyecto"], formato="guion")
         for f in facturas_mes
@@ -22,6 +27,11 @@ def reconciliar(provisiones_mes_anterior: list[dict], facturas_mes: list[dict], 
         if codigo in facturados:
             canceladas.append(provision)
         else:
-            activas.append(provision)
+            activas.append({**provision, "monto_mxn_anterior": provision["monto_mxn"]})
 
-    return {"canceladas": canceladas, "activas": activas, "nuevas": list(provisiones_nuevas)}
+    return {
+        "canceladas": canceladas,
+        "activas": activas,
+        "nuevas": list(provisiones_nuevas),
+        "alertas": alertas or [],
+    }

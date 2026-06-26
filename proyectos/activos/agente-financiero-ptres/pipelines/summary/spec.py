@@ -22,6 +22,7 @@ def build_summary_spec(
             provisiones_mes_anterior=estructura["provisiones_mes_anterior"],
             facturas_mes=estructura["facturas_mes"],
             provisiones_nuevas=estructura["provisiones_nuevas"],
+            alertas=estructura.get("alertas", []),
         )
         filas = [
             [
@@ -31,7 +32,12 @@ def build_summary_spec(
             ]
             for p in resultado["activas"] + resultado["nuevas"]
         ]
-        return {"resumen": resultado, "detalle": {"filas": filas}}
+        counts = {
+            "canceladas": len(resultado["canceladas"]),
+            "activas": len(resultado["activas"]),
+            "nuevas": len(resultado["nuevas"]),
+        }
+        return {"resumen": resultado, "detalle": {"filas": filas, "counts": counts}}
 
     def write(detalle: dict, archivo_destino) -> dict:
         escribir_hoja_mes(
@@ -41,7 +47,14 @@ def build_summary_spec(
             hoja_mes_nuevo=hoja_mes_nuevo,
             filas=detalle["filas"],
         )
-        return {"archivo": ruta_destino, "filas_escritas": len(detalle["filas"])}
+        counts = detalle["counts"]
+        return {
+            "archivo": ruta_destino,
+            "filas_escritas": counts["activas"] + counts["nuevas"],
+            "canceladas": counts["canceladas"],
+            "activas": counts["activas"],
+            "nuevas": counts["nuevas"],
+        }
 
     return PipelineSpec(
         name="summary",

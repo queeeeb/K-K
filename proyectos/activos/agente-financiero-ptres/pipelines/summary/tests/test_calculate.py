@@ -42,3 +42,24 @@ def test_reconciliar_detecta_provision_nueva():
     )
 
     assert resultado["nuevas"][0]["proyecto"] == "26gmx2000.005"
+
+
+def test_reconciliar_activas_tienen_monto_anterior():
+    provisiones_anteriores = [{"proyecto": "26gmx3000.001", "monto_mxn": 1500, "cc": 3000, "cliente": "Cliente Uno"}]
+    facturas = []
+
+    resultado = reconciliar(provisiones_anteriores, facturas, provisiones_nuevas=[])
+
+    assert resultado["activas"][0]["monto_mxn_anterior"] == 1500
+    assert resultado["activas"][0]["monto_mxn"] == 1500
+
+
+def test_reconciliar_incluye_alertas_vacias_por_defecto():
+    resultado = reconciliar([], [], [])
+    assert resultado["alertas"] == []
+
+
+def test_reconciliar_acepta_alertas():
+    alertas = ["Proyecto sin código en DS — fila 24."]
+    resultado = reconciliar([], [], [], alertas=alertas)
+    assert resultado["alertas"] == alertas
