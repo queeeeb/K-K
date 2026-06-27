@@ -10,6 +10,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from typing import Optional
+
 from core import audit_log, auth, registry
 from core.db import get_connection, init_db
 from core.lock import LockHeldError, acquire_lock, release_lock
@@ -50,6 +52,26 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(_bearer
         return auth.decode_access_token(credentials.credentials)
     except auth.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+
+def _audit_entries_from_plan(pipeline: str, plan: dict) -> list[dict]:
+    entries = []
+    if pipeline == "summary":
+        resumen = plan.get("resumen", {})
+        for r in resumen.get("canceladas", []):
+            entries.append({"fila": r["proyecto"], "anterior": str(r["monto_mxn"]), "nuevo": "Cancelar"})
+        for r in resumen.get("activas", []):
+            entries.append({"fila": r["proyecto"], "anterior": str(r.get("monto_mxn_anterior") or ""), "nuevo": str(r["monto_mxn"])})
+        for r in resumen.get("nuevas", []):
+            entries.append({"fila": r["proyecto"], "anterior": None, "nuevo": str(r["monto_mxn"])})
+    elif pipeline == "pl":
+        rubros = plan.get("detalle", {}).get("plan", {}).get("rubros", {})
+        for cuentas in rubros.values():
+            for c in cuentas:
+                entries.append({"fila": c.get("label", c["numero"]), "anterior": None, "nuevo": str(round(c["montos"]["TOTAL"], 2))})
+    if not entries:
+        entries.append({"fila": "*", "anterior": None, "nuevo": "confirmado"})
+    return entries
 
 
 @app.get("/health")
@@ -125,15 +147,60 @@ def confirmar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depe
         conn.commit()
         raise
 
-    audit_log.log_write(
-        conn, pipeline, row["mes"], fila="*", valor_anterior=None,
-        valor_nuevo=json.dumps(reporte), usuario=usuario_autenticado,
-    )
+    for entry in _audit_entries_from_plan(pipeline, plan):
+        audit_log.log_write(
+            conn, pipeline, row["mes"],
+            fila=entry["fila"], valor_anterior=entry["anterior"],
+            valor_nuevo=entry["nuevo"], usuario=usuario_autenticado,
+        )
     release_lock(conn, pipeline, row["mes"])
     conn.execute("DELETE FROM plans WHERE token = ?", (body.token,))
     conn.commit()
 
     return {"reporte": reporte}
+
+
+@app.get("/pendientes")
+def pendientes(usuario_autenticado: str = Depends(get_current_user)):
+    conn = _conn()
+    rows = conn.execute(
+        "SELECT l.pipeline, l.mes, p.token, p.plan_json "
+        "FROM locks l JOIN plans p ON l.pipeline = p.pipeline AND l.mes = p.mes "
+        "WHERE l.locked_by = ?",
+        (usuario_autenticado,),
+    ).fetchall()
+    result = []
+    for row in rows:
+        plan = json.loads(row["plan_json"])
+        result.append({
+            "pipeline": row["pipeline"],
+            "mes": row["mes"],
+            "token": row["token"],
+            "resumen": plan["resumen"],
+        })
+    return result
+
+
+@app.get("/recuperar/{pipeline}")
+def recuperar(pipeline: str, mes: str, usuario_autenticado: str = Depends(get_current_user)):
+    _validar_pipeline(pipeline)
+    conn = _conn()
+    holder = get_lock_holder(conn, pipeline, mes)
+    if holder != usuario_autenticado:
+        raise HTTPException(status_code=404, detail="No hay proceso activo tuyo para este pipeline/mes")
+    row = conn.execute(
+        "SELECT token, plan_json FROM plans WHERE pipeline = ? AND mes = ?", (pipeline, mes)
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Plan no encontrado")
+    plan = json.loads(row["plan_json"])
+    return {"token": row["token"], "resumen": plan["resumen"]}
+
+
+@app.get("/bitacora")
+def bitacora(pipeline: Optional[str] = None, usuario_autenticado: str = Depends(get_current_user)):
+    conn = _conn()
+    return audit_log.get_all(conn, pipeline)
 
 
 @app.post("/rechazar/{pipeline}")

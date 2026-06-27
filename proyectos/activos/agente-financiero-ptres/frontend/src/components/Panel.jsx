@@ -1,4 +1,4 @@
-import { CheckCircle2, TrendingUp, Wallet, Calendar, ChevronDown, ChevronRight, Cpu, Lock } from 'lucide-react'
+import { CheckCircle2, TrendingUp, Wallet, Calendar, ChevronDown, ChevronRight, Cpu, Lock, Clock, XCircle } from 'lucide-react'
 import Money from './Money'
 import StatusPill from './StatusPill'
 
@@ -8,11 +8,45 @@ const KPIS = [
   { l: 'Total provisionado',  v: 3_325_000,     sub: 'cierre anterior',    icon: Wallet,       tone: 'text-slate-900',  num: true  },
 ]
 
-export default function Panel({ pact, mes, setMes, MESES, lockedBy, onProcesar }) {
+const PIPELINE_LABEL = { summary: 'Summary · Provisiones', pl: 'P&L · Estado de resultados' }
+const MES_LABEL = (mes) => mes.replace('-', ' — ').replace(/(\d{4}) — (\d{2})/, (_, y, m) => {
+  const mp = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+  return `${y} — ${mp[parseInt(m)] || m}`
+})
+
+function BannerPendientes({ items, onRetomar, onCancelar }) {
+  if (!items || items.length === 0) return null
+  return (
+    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+      <p className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+        <Clock size={15} /> Esperando aprobación
+      </p>
+      {items.map((item) => (
+        <div key={`${item.pipeline}|${item.mes}`} className="flex items-center justify-between gap-4 rounded-lg border border-blue-100 bg-white px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-slate-900">{PIPELINE_LABEL[item.pipeline] ?? item.pipeline}</p>
+            <p className="text-xs text-slate-500">{MES_LABEL(item.mes)}</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => onCancelar(item)} className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors">
+              <XCircle size={13} /> Cancelar
+            </button>
+            <button onClick={() => onRetomar(item)} className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors">
+              <ChevronRight size={13} /> Retomar
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export default function Panel({ pact, mes, setMes, MESES, lockedBy, pendientesItems, onProcesar, onRetomar, onCancelarPendiente }) {
   const Icon = pact.icon
 
   return (
     <div className="space-y-6">
+      <BannerPendientes items={pendientesItems} onRetomar={onRetomar} onCancelar={onCancelarPendiente} />
       <div>
         <h1 className="text-xl font-bold text-slate-900">Panel de proceso</h1>
         <p className="text-sm text-slate-500">Elige el mes y procésalo. Verás un resumen para aprobar antes de escribir nada.</p>

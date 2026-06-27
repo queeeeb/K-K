@@ -46,3 +46,19 @@ def get_log(conn: sqlite3.Connection, pipeline: str, mes: str) -> list[dict]:
         (pipeline, mes),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+def get_all(conn: sqlite3.Connection, pipeline: str | None = None) -> list[dict]:
+    _ensure_table(conn)
+    if pipeline:
+        rows = conn.execute(
+            "SELECT pipeline, mes, fila, usuario, valor_anterior, valor_nuevo, created_at "
+            "FROM audit_log WHERE pipeline = ? ORDER BY id DESC",
+            (pipeline,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT pipeline, mes, fila, usuario, valor_anterior, valor_nuevo, created_at "
+            "FROM audit_log ORDER BY id DESC"
+        ).fetchall()
+    return [dict(row) for row in rows]

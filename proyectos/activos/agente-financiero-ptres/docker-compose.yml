@@ -1,0 +1,37 @@
+services:
+  frontend-build:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend_dist:/app/dist
+    command: sh -c "npm ci && npm run build"
+
+  backend:
+    build: .
+    environment:
+      - AGENTE_JWT_SECRET=${AGENTE_JWT_SECRET}
+      - AGENTE_DB_PATH=/data/agente.db
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - AGENTE_HOST=0.0.0.0
+    volumes:
+      - agente_data:/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - frontend_dist:/srv/dist
+    depends_on:
+      frontend-build:
+        condition: service_completed_successfully
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  agente_data:
+  frontend_dist:

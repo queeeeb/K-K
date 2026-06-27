@@ -1,4 +1,4 @@
-import { ChevronRight, Calendar, Search, Bell, ShieldCheck } from 'lucide-react'
+import { ChevronRight, Calendar, Bell, ShieldCheck } from 'lucide-react'
 
 export default function Topbar({ usuario, pact, mes, MESES }) {
   const mesLabel = MESES.find(m => m.value === mes)?.label ?? mes
@@ -13,8 +13,7 @@ export default function Topbar({ usuario, pact, mes, MESES }) {
         </span>
       </div>
       <div className="flex items-center gap-3">
-        <button className="hidden h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 sm:flex"><Search size={17} /></button>
-        <button className="relative hidden h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 sm:flex">
+<button className="relative hidden h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 sm:flex">
           <Bell size={17} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-amber-500" />
         </button>
         <div className="hidden items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200 md:flex">

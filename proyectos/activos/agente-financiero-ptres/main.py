@@ -1,4 +1,5 @@
 import dataclasses
+import os
 import uvicorn
 
 from core.registry import register
@@ -66,4 +67,5 @@ register(dataclasses.replace(
 
 
 if __name__ == "__main__":
-    uvicorn.run("core.api:app", host="127.0.0.1", port=8000, reload=False)
+    host = os.getenv("AGENTE_HOST", "127.0.0.1")
+    uvicorn.run("core.api:app", host=host, port=8000, reload=False)

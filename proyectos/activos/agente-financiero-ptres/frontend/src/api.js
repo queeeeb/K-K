@@ -1,6 +1,7 @@
 const BASE = ''  // proxy de Vite redirige al backend
 
 let _token = localStorage.getItem('orion_jwt') || null
+let _usuario = localStorage.getItem('orion_user') || ''
 
 function setToken(jwt) {
   _token = jwt
@@ -10,7 +11,11 @@ function setToken(jwt) {
 
 function clearToken() {
   setToken(null)
+  _usuario = ''
+  localStorage.removeItem('orion_user')
 }
+
+function getUsuario() { return _usuario }
 
 async function _fetch(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers }
@@ -36,6 +41,8 @@ async function login(usuario, password) {
     body: JSON.stringify({ usuario, password }),
   })
   setToken(data.access_token)
+  _usuario = usuario
+  localStorage.setItem('orion_user', usuario)
   return data
 }
 
@@ -62,4 +69,17 @@ async function rechazar(pipeline, token) {
 
 function getToken() { return _token }
 
-export default { login, procesar, confirmar, rechazar, setToken, clearToken, getToken }
+async function pendientes() {
+  return _fetch('/pendientes')
+}
+
+async function recuperar(pipeline, mes) {
+  return _fetch(`/recuperar/${pipeline}?mes=${mes}`)
+}
+
+async function bitacora(pipeline) {
+  const qs = pipeline ? `?pipeline=${pipeline}` : ''
+  return _fetch(`/bitacora${qs}`)
+}
+
+export default { login, procesar, confirmar, rechazar, recuperar, pendientes, bitacora, setToken, clearToken, getToken, getUsuario }

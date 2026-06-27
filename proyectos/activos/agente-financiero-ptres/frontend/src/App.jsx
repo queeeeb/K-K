@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileSpreadsheet, TrendingUp, Wallet } from 'lucide-react'
 import api from './api'
 import Sidebar from './components/Sidebar'
@@ -10,6 +10,8 @@ import ErrorScreen from './components/ErrorScreen'
 import Resumen  from './components/Resumen'
 import Reporte  from './components/Reporte'
 import Rechazado from './components/Rechazado'
+import Bitacora from './components/Bitacora'
+import ResumenPL from './components/ResumenPL'
 
 export const PIPELINES = [
   { id: 'summary',  nombre: 'Summary',   full: 'Summary · Provisiones',      desc: 'Hoja mensual de provisiones',   icon: FileSpreadsheet, estado: 'activo' },
@@ -28,15 +30,23 @@ export { MESES }
 
 export default function App() {
   const [screen,     setScreen]     = useState(api.getToken() ? 'panel' : 'login')
-  const [usuario,    setUsuario]    = useState('')
+  const [usuario,    setUsuario]    = useState(api.getUsuario())
   const [pipeline,   setPipeline]   = useState('summary')
   const [mes,        setMes]        = useState('2026-05')
   const [plan,       setPlan]       = useState(null)
   const [reporte,    setReporte]    = useState(null)
   const [errorMsg,   setErrorMsg]   = useState('')
   const [lockedBy,   setLockedBy]   = useState('')
+  const [bitacoraData, setBitacoraData] = useState(null)
+  const [pendientesItems, setPendientesItems] = useState([])
 
   const pact = PIPELINES.find(p => p.id === pipeline)
+
+  useEffect(() => {
+    if (screen === 'panel' && api.getToken()) {
+      api.pendientes().then(setPendientesItems).catch(() => {})
+    }
+  }, [screen])
 
   function handleLogout() {
     api.clearToken()
@@ -46,7 +56,7 @@ export default function App() {
     setScreen('login')
   }
 
-  const sharedProps = { usuario, pipeline, setPipeline, mes, setMes, plan, planToken: plan?.token, reporte, pact, MESES, lockedBy, errorMsg }
+  const sharedProps = { usuario, pipeline, setPipeline, mes, setMes, plan, planToken: plan?.token, reporte, pact, MESES, lockedBy, errorMsg, pendientesItems }
 
   if (screen === 'login') {
     return <Login onSuccess={(u) => { setUsuario(u); setScreen('panel') }} />
@@ -54,7 +64,19 @@ export default function App() {
 
   return (
     <div className="font-ui min-h-screen bg-slate-100 text-slate-900 antialiased flex">
-      <Sidebar pipeline={pipeline} setPipeline={setPipeline} onLogout={handleLogout} />
+      <Sidebar pipeline={pipeline} setPipeline={(id) => {
+        if (plan) api.rechazar(pipeline, plan.token).catch(() => {})
+        setPipeline(id)
+        setLockedBy('')
+        setPlan(null)
+        setScreen('panel')
+      }} screen={screen} setScreen={async (s) => {
+        if (s === 'bitacora' && !bitacoraData) {
+          const data = await api.bitacora().catch(() => [])
+          setBitacoraData(data)
+        }
+        setScreen(s)
+      }} onLogout={handleLogout} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar usuario={usuario} pact={pact} mes={mes} MESES={MESES} />
         <main className="flex-1 overflow-y-auto px-6 py-6 lg:px-10">
@@ -62,6 +84,15 @@ export default function App() {
             {screen === 'panel' && (
               <Panel
                 {...sharedProps}
+                onRetomar={(item) => {
+                  setPipeline(item.pipeline)
+                  setPlan({ token: item.token, resumen: item.resumen })
+                  setScreen('summary')
+                }}
+                onCancelarPendiente={async (item) => {
+                  await api.rechazar(item.pipeline, item.token).catch(() => {})
+                  setPendientesItems(prev => prev.filter(p => !(p.pipeline === item.pipeline && p.mes === item.mes)))
+                }}
                 onProcesar={async () => {
                   setScreen('processing')
                   try {
@@ -70,8 +101,19 @@ export default function App() {
                     setScreen('summary')
                   } catch (err) {
                     if (err.locked) {
-                      setLockedBy(err.locked_by)
-                      setScreen('panel')
+                      if (err.locked_by === usuario) {
+                        try {
+                          const data = await api.recuperar(pipeline, mes)
+                          setPlan(data)
+                          setScreen('summary')
+                        } catch {
+                          setLockedBy(err.locked_by)
+                          setScreen('panel')
+                        }
+                      } else {
+                        setLockedBy(err.locked_by)
+                        setScreen('panel')
+                      }
                     } else {
                       setErrorMsg(err.message)
                       setScreen('error')
@@ -82,7 +124,33 @@ export default function App() {
             )}
             {screen === 'processing' && <Loader titulo={`Procesando ${pact.full}`} sub={MESES.find(m => m.value === mes)?.label ?? mes} mode="processing" />}
             {screen === 'error'      && <ErrorScreen msg={errorMsg} onBack={() => { setErrorMsg(''); setScreen('panel') }} />}
-            {screen === 'summary'    && (
+            {screen === 'summary' && pipeline === 'pl' && (
+              <ResumenPL
+                pact={pact}
+                mes={MESES.find(m => m.value === mes)?.label ?? mes}
+                resumen={plan?.resumen}
+                onConfirmar={async () => {
+                  setScreen('writing')
+                  try {
+                    const data = await api.confirmar(pipeline, plan.token)
+                    setReporte(data.reporte)
+                    setPlan(null)
+                    setBitacoraData(null)
+                    setPendientesItems([])
+                    setScreen('report')
+                  } catch (err) {
+                    setErrorMsg(err.message)
+                    setScreen('error')
+                  }
+                }}
+                onRechazar={async () => {
+                  await api.rechazar(pipeline, plan.token).catch(() => {})
+                  setPlan(null)
+                  setScreen('rejected')
+                }}
+              />
+            )}
+            {screen === 'summary' && pipeline !== 'pl' && (
               <Resumen
                 pact={pact}
                 mes={MESES.find(m => m.value === mes)?.label ?? mes}
@@ -93,6 +161,8 @@ export default function App() {
                     const data = await api.confirmar(pipeline, plan.token)
                     setReporte(data.reporte)
                     setPlan(null)
+                    setBitacoraData(null)
+                    setPendientesItems([])
                     setScreen('report')
                   } catch (err) {
                     setErrorMsg(err.message)
@@ -109,6 +179,7 @@ export default function App() {
             {screen === 'writing'   && <Loader titulo="Escribiendo y subiendo a Drive" sub={MESES.find(m => m.value === mes)?.label ?? mes} mode="writing" />}
             {screen === 'report'    && <Reporte reporte={reporte} mes={MESES.find(m => m.value === mes)?.label ?? mes} onBack={() => setScreen('panel')} />}
             {screen === 'rejected'  && <Rechazado onBack={() => setScreen('panel')} />}
+            {screen === 'bitacora' && <Bitacora entradas={bitacoraData || []} />}
           </div>
         </main>
         <footer className="border-t border-slate-200 bg-white px-6 py-4 text-center lg:px-10">
