@@ -82,4 +82,18 @@ async function bitacora(pipeline) {
   return _fetch(`/bitacora${qs}`)
 }
 
-export default { login, procesar, confirmar, rechazar, recuperar, pendientes, bitacora, setToken, clearToken, getToken, getUsuario }
+async function descargar(archivo) {
+  const res = await fetch(`/descargar/${archivo}`, {
+    headers: { Authorization: `Bearer ${_token}` },
+  })
+  if (!res.ok) throw new Error(`Error ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = archivo
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export default { login, procesar, confirmar, rechazar, recuperar, pendientes, bitacora, descargar, setToken, clearToken, getToken, getUsuario }

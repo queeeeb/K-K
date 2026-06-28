@@ -79,6 +79,19 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/descargar/{archivo}")
+def descargar(archivo: str, usuario_autenticado: str = Depends(get_current_user)):
+    import re
+    from fastapi.responses import FileResponse
+    if not re.fullmatch(r"[A-Za-z0-9_\-\.]+\.xlsx", archivo):
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido")
+    reportes_dir = os.environ.get("AGENTE_REPORTES_DIR", "reportes")
+    ruta = os.path.join(reportes_dir, archivo)
+    if not os.path.exists(ruta):
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    return FileResponse(ruta, filename=archivo, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
 @app.post("/login")
 @limiter.limit("10/minute")
 def login(request: Request, body: LoginRequest):

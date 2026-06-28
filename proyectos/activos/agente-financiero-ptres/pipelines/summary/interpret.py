@@ -6,7 +6,7 @@ _TIMEOUT_SEGUNDOS = 30
 
 def _ask_claude_for_structure(anthropic_client, prompt: str) -> dict:
     message = anthropic_client.messages.create(
-        model="claude-opus-4-8",
+        model="claude-sonnet-4-6",
         max_tokens=1024,
         timeout=_TIMEOUT_SEGUNDOS,
         messages=[{"role": "user", "content": prompt}],

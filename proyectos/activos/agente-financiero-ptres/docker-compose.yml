@@ -4,6 +4,7 @@ services:
     working_dir: /app
     volumes:
       - ./frontend:/app
+      - /app/node_modules
       - frontend_dist:/app/dist
     command: sh -c "npm ci && npm run build"
 
@@ -12,10 +13,15 @@ services:
     environment:
       - AGENTE_JWT_SECRET=${AGENTE_JWT_SECRET}
       - AGENTE_DB_PATH=/data/agente.db
+      - AGENTE_REPORTES_DIR=/data/reportes
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - AGENTE_HOST=0.0.0.0
+      - GOOGLE_SERVICE_ACCOUNT_JSON=/run/secrets/service_account.json
+      - DRIVE_FOLDER_ID=${DRIVE_FOLDER_ID}
+      - DRIVE_PL_FILE_NAME=${DRIVE_PL_FILE_NAME}
     volumes:
       - agente_data:/data
+      - ${GOOGLE_SERVICE_ACCOUNT_JSON}:/run/secrets/service_account.json:ro
     restart: unless-stopped
 
   caddy:

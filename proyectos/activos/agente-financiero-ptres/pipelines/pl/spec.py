@@ -3,7 +3,7 @@ El `interpret` real (que compone Drive + Claude en un dict de cuentas) se inyect
 en tests se sustituye por un stub fijo, igual que en el pipeline Summary.
 """
 from core.pipeline_spec import PipelineSpec
-from pipelines.pl.calculate import calcular_pl
+from pipelines.pl.calculate import COLUMNAS_SALIDA, calcular_pl
 from pipelines.pl.write import escribir_pl
 
 SOURCES = ["Movimientos_Auxiliares_Segmento_{mes}.xlsx"]
@@ -13,6 +13,7 @@ def build_pl_spec(interpret_override, ruta_destino: str, periodo: str) -> Pipeli
     def calculate(estructura: dict, estado_anterior=None) -> dict:
         plan = calcular_pl(estructura["cuentas"])
         totales = plan["totales"]
+        _rubros = ["INCOMES", "EXPENSES", "OPERATING_PROFIT", "OTHER_INCOMES", "OTHER_EXPENSES", "ACCRUED_TAXES", "NET_PROFIT"]
         resumen = {
             "incomes": totales["INCOMES"]["TOTAL"],
             "expenses": totales["EXPENSES"]["TOTAL"],
@@ -21,6 +22,10 @@ def build_pl_spec(interpret_override, ruta_destino: str, periodo: str) -> Pipeli
             "other_expenses": totales["OTHER_EXPENSES"]["TOTAL"],
             "accrued_taxes": totales["ACCRUED_TAXES"]["TOTAL"],
             "net_profit": totales["NET_PROFIT"]["TOTAL"],
+            "por_segmento": {
+                r: {col: totales[r][col] for col in COLUMNAS_SALIDA}
+                for r in _rubros
+            },
         }
         return {"resumen": resumen, "detalle": {"plan": plan, "periodo": periodo}}
 

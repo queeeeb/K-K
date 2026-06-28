@@ -29,3 +29,19 @@ def download_file(service, file_id: str) -> bytes:
 def upload_file(service, file_id: str, content: bytes) -> None:
     media = MediaIoBaseUpload(io.BytesIO(content), mimetype="application/octet-stream")
     service.files().update(fileId=file_id, media_body=media).execute()
+
+
+def create_file(service, name: str, folder_id: str, content: bytes) -> str:
+    media = MediaIoBaseUpload(io.BytesIO(content), mimetype="application/octet-stream")
+    meta = {"name": name, "parents": [folder_id]}
+    file = service.files().create(body=meta, media_body=media, fields="id").execute()
+    return file["id"]
+
+
+def upsert_file(service, name: str, folder_id: str, content: bytes) -> str:
+    try:
+        file_id = find_file_id(service, name, folder_id)
+        upload_file(service, file_id, content)
+        return file_id
+    except FileNotFoundOnDrive:
+        return create_file(service, name, folder_id, content)

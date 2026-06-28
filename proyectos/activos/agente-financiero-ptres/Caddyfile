@@ -23,6 +23,9 @@
     handle /recuperar/* {
         reverse_proxy backend:8000
     }
+    handle /descargar/* {
+        reverse_proxy backend:8000
+    }
     handle {
         root * /srv/dist
         try_files {path} /index.html

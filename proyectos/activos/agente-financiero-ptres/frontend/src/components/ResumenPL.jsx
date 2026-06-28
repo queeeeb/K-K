@@ -2,20 +2,29 @@ import { ShieldCheck, Clock, CheckCircle2, XCircle, TrendingUp, TrendingDown } f
 import Money from './Money'
 import StatusPill from './StatusPill'
 
+const SEGS = ['BO', 'CONS OPS', 'ING', 'DIGITAL SOLUTIONS', 'TOTAL']
+const SEG_LABEL = { 'BO': 'BO', 'CONS OPS': 'Cons Ops', 'ING': 'Ing', 'DIGITAL SOLUTIONS': 'DS', 'TOTAL': 'Total' }
+
 const FILAS = [
-  { key: 'incomes',          label: 'Ingresos',              tone: 'text-emerald-600' },
-  { key: 'expenses',         label: 'Gastos operativos',     tone: 'text-rose-600' },
-  { key: 'operating_profit', label: 'Utilidad operativa',    tone: 'text-slate-900', bold: true, divider: true },
-  { key: 'other_incomes',    label: 'Otros ingresos',        tone: 'text-emerald-600' },
-  { key: 'other_expenses',   label: 'Otros gastos',          tone: 'text-rose-600' },
-  { key: 'accrued_taxes',    label: 'Impuestos acumulados',  tone: 'text-rose-600' },
-  { key: 'net_profit',       label: 'Utilidad neta',         tone: 'text-slate-900', bold: true, divider: true },
+  { rubro: 'INCOMES',          label: 'Ingresos',             tone: 'text-emerald-600' },
+  { rubro: 'EXPENSES',         label: 'Gastos operativos',    tone: 'text-rose-600' },
+  { rubro: 'OPERATING_PROFIT', label: 'Utilidad operativa',   tone: null, bold: true, divider: true },
+  { rubro: 'OTHER_INCOMES',    label: 'Otros ingresos',       tone: 'text-emerald-600' },
+  { rubro: 'OTHER_EXPENSES',   label: 'Otros gastos',         tone: 'text-rose-600' },
+  { rubro: 'ACCRUED_TAXES',    label: 'Impuestos acumulados', tone: 'text-rose-600' },
+  { rubro: 'NET_PROFIT',       label: 'Utilidad neta',        tone: null, bold: true, divider: true },
 ]
+
+function cellTone(value, baseTone) {
+  if (baseTone) return baseTone
+  return value >= 0 ? 'text-emerald-600' : 'text-rose-600'
+}
 
 export default function ResumenPL({ pact, mes, resumen, onConfirmar, onRechazar }) {
   if (!resumen) return null
 
   const netPositive = resumen.net_profit >= 0
+  const ps = resumen.por_segmento ?? {}
 
   return (
     <div className="space-y-6 pb-24">
@@ -31,7 +40,7 @@ export default function ResumenPL({ pact, mes, resumen, onConfirmar, onRechazar 
 
       <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3">
         <ShieldCheck size={18} className="shrink-0 text-amber-700" />
-        <p className="text-sm font-medium text-amber-900">Nada se ha guardado todavía. Revisa los totales y aprueba para escribir el P&L.</p>
+        <p className="text-sm font-medium text-amber-900">Nada se ha guardado todavía. Revisa los totales y aprueba para escribir el P&amp;L.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -48,7 +57,7 @@ export default function ResumenPL({ pact, mes, resumen, onConfirmar, onRechazar 
               ? <TrendingUp size={16} className="text-emerald-600" />
               : <TrendingDown size={16} className="text-rose-600" />}
           </div>
-          <p className={`mt-2 font-num text-2xl font-bold tabular-nums ${netPositive ? 'text-slate-900' : 'text-rose-600'}`}>
+          <p className={`mt-2 font-num text-2xl font-bold tabular-nums ${netPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
             <Money value={resumen.net_profit} />
           </p>
         </div>
@@ -56,20 +65,40 @@ export default function ResumenPL({ pact, mes, resumen, onConfirmar, onRechazar 
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-3.5">
-          <h3 className="text-sm font-semibold text-slate-900">Estado de resultados</h3>
+          <h3 className="text-sm font-semibold text-slate-900">Estado de resultados por segmento</h3>
         </div>
-        <table className="w-full text-sm">
-          <tbody>
-            {FILAS.map(({ key, label, tone, bold, divider }) => (
-              <tr key={key} className={`transition-colors hover:bg-slate-50/70 ${divider ? 'border-t border-slate-200' : 'border-t border-slate-50'}`}>
-                <td className={`px-5 py-3 ${bold ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>{label}</td>
-                <td className={`px-5 py-3 text-right font-num tabular-nums ${bold ? 'font-bold' : 'font-medium'} ${tone}`}>
-                  <Money value={resumen[key]} />
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/40">
+                <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 min-w-[160px]">Sección</th>
+                {SEGS.map(seg => (
+                  <th key={seg} className={`px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 min-w-[110px] ${seg === 'TOTAL' ? 'border-l border-slate-200' : ''}`}>
+                    {SEG_LABEL[seg]}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {FILAS.map(({ rubro, label, tone, bold, divider }) => {
+                const row = ps[rubro] ?? {}
+                return (
+                  <tr key={rubro} className={`transition-colors hover:bg-slate-50/70 ${divider ? 'border-t-2 border-slate-200' : 'border-t border-slate-50'}`}>
+                    <td className={`px-5 py-3 ${bold ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>{label}</td>
+                    {SEGS.map(seg => {
+                      const val = row[seg] ?? 0
+                      return (
+                        <td key={seg} className={`px-4 py-3 text-right font-num tabular-nums ${bold ? 'font-bold' : 'font-medium'} ${cellTone(val, tone)} ${seg === 'TOTAL' ? 'border-l border-slate-200' : ''}`}>
+                          <Money value={val} />
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur lg:left-64">

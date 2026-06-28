@@ -1,54 +1,71 @@
-"""Interpretación con IA del export de Contpaqi. Única pieza que llama a Claude.
-Devuelve SOLO estructura y clasificación (nunca montos calculados): la máquina de
-estados de tipos de fila, el mapa de columnas y la clasificación cuenta->grupo->rubro
-con su label en inglés. Ver pipelines/pl/ESPECIFICACION.md §3.1, §3.2, §3.5 y §4.
-"""
+import io
 import json
 
+import openpyxl
 
-def _ask_claude_for_structure(anthropic_client, prompt: str) -> dict:
+from pipelines.pl.extract import extraer_cuentas
+
+
+def _ask_claude(anthropic_client, prompt: str, max_tokens: int = 4096) -> dict:
     message = anthropic_client.messages.create(
-        model="claude-opus-4-8",
-        max_tokens=2048,
+        model="claude-haiku-4-5-20251001",
+        max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
     )
-    return json.loads(message.content[0].text)
+    text = message.content[0].text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    return json.loads(text)
 
 
-def interpret_estructura(rows: list[list], anthropic_client) -> dict:
-    prompt = (
-        "Este es un export de Contpaqi 'Movimientos Auxiliares por Segmento de Negocio'. "
-        "Es un reporte jerárquico, no una tabla plana. Hay 4 tipos de fila: "
-        "(A) CUENTA: la columna A tiene un número de cuenta contable (formato NNNN-...); su nombre está en la columna B. "
-        "(B) SEGMENTO: la columna A empieza con 'Segmento:'. "
-        "(C) TOTAL DE SEGMENTO: la columna E empieza con 'Total Seg.'; los cargos están en la columna F y los abonos en la columna G. "
-        "(D) MOVIMIENTO DETALLE (Diario): dentro de Ventas Nacionales, la columna B = 'Diario' y el cliente está en la columna D. "
-        "Identifica el periodo (suele estar en A3 o A2) y, por número de fila, qué filas son CUENTA, SEGMENTO, TOTAL_SEGMENTO y DIARIO. "
-        "Responde solo JSON con las llaves: periodo, columnas, filas_cuenta, filas_segmento, filas_total_segmento, filas_diario.\n\n"
-        f"Filas: {rows}"
-    )
-    return _ask_claude_for_structure(anthropic_client, prompt)
+_BATCH_SIZE = 30
 
 
-def clasificar_cuentas(cuentas: list[dict], anthropic_client) -> dict:
+def _clasificar_batch(cuentas: list[dict], anthropic_client) -> list[dict]:
     prompt = (
         "Clasifica cada cuenta contable a su rubro del Estado de Resultados (P&L) de P-TRES GROUP. "
         "Rubros posibles: INCOMES (ventas, prefijo 4110), OTHER_INCOMES (4210/4310/4510), "
         "EXPENSES (gastos 6100-001 a 6100-008), OTHER_EXPENSES (6100-009), ACCRUED_TAXES (8000 o 0000-000-80). "
-        "Analiza TODAS las cuentas por su número Y su nombre, no solo las que ya conoces: si aparece una cuenta o "
-        "cliente nuevo, clasifícalo a su rubro correcto y márcalo con nuevo=true (NO lo mandes a un cajón genérico). "
+        "Si aparece una cuenta nueva, clasifícala a su rubro correcto y márcala con nuevo=true. "
+        "Cuentas sin rubro P&L (capital, balance, etc.) deben tener rubro null. "
         "Traduce el nombre al label en inglés del P&L (ES->EN). "
-        "Responde solo JSON con la llave 'cuentas': lista de objetos con numero, grupo, rubro, label_en, nuevo.\n\n"
+        "Responde SOLO JSON sin markdown: {\"cuentas\": [{numero, rubro, label_en, nuevo}]}.\n\n"
         f"Cuentas: {cuentas}"
     )
-    return _ask_claude_for_structure(anthropic_client, prompt)
+    return _ask_claude(anthropic_client, prompt, max_tokens=4096).get("cuentas", [])
 
 
-def normalizar_cliente(nombre: str, anthropic_client) -> dict:
-    prompt = (
-        "Normaliza la razón social de un cliente de ventas nacionales a su nombre canónico del P&L. "
-        "Distintas variantes de la misma empresa (con/sin S.A. de C.V., con/sin sufijos) deben mapear al mismo "
-        "nombre canónico. Responde solo JSON con la llave: canonico.\n\n"
-        f"Cliente: {nombre}"
-    )
-    return _ask_claude_for_structure(anthropic_client, prompt)
+def clasificar_cuentas(cuentas: list[dict], anthropic_client) -> dict:
+    resultados = []
+    for i in range(0, len(cuentas), _BATCH_SIZE):
+        resultados.extend(_clasificar_batch(cuentas[i:i + _BATCH_SIZE], anthropic_client))
+    return {"cuentas": resultados}
+
+
+def interpret_pl(wb_bytes: bytes, anthropic_client) -> dict:
+    wb = openpyxl.load_workbook(io.BytesIO(wb_bytes), data_only=True)
+    ws = wb.active
+
+    cuentas_raw = extraer_cuentas(ws)
+
+    relevantes = [
+        c for c in cuentas_raw
+        if c["numero"].strip()[0] in ("4", "6", "8") and c["segmentos"]
+    ]
+
+    cuentas_input = [{"numero": c["numero"], "nombre": c["nombre"]} for c in relevantes]
+    clasificacion = clasificar_cuentas(cuentas_input, anthropic_client)
+    clf_map = {c["numero"]: c for c in clasificacion.get("cuentas", [])}
+
+    cuentas_final = []
+    for cuenta in relevantes:
+        clf = clf_map.get(cuenta["numero"])
+        if clf and clf.get("rubro"):
+            cuentas_final.append({
+                "numero": cuenta["numero"],
+                "label": clf.get("label_en", cuenta["nombre"]),
+                "rubro": clf["rubro"],
+                "segmentos": cuenta["segmentos"],
+            })
+
+    return {"cuentas": cuentas_final}
