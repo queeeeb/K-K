@@ -53,7 +53,13 @@ def client(tmp_path, monkeypatch):
 def test_procesar_confirmar_escribe_archivo(client):
     test_client, destino, headers = client
 
-    procesar = test_client.post("/procesar/summary", json={"mes": "2026_May"}, headers=headers)
+    # summary requiere 5 slots subidos; el fake_interpret los ignora, así que basta
+    # con archivos dummy para pasar la validación de subida.
+    dummy = ("x.xlsx", b"PK\x03\x04", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    files = {slot: dummy for slot in ("base", "facturacion", "ds", "engineering", "consulting")}
+    procesar = test_client.post(
+        "/procesar/summary", data={"mes": "2026_May"}, files=files, headers=headers
+    )
     assert procesar.status_code == 200
     resumen = procesar.json()["resumen"]
     assert len(resumen["canceladas"]) == 1

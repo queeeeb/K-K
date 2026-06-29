@@ -46,22 +46,17 @@ def _build_interpret_pl(drive_service):
 
     import anthropic
     from pipelines.pl.interpret import interpret_pl
-    from core.drive_client import find_file_id, download_file
 
     client = anthropic.Anthropic(api_key=api_key)
-    folder_id = os.environ.get("DRIVE_FOLDER_ID", "")
-    drive_file_name = os.environ.get("DRIVE_PL_FILE_NAME", "")
-    ruta_local = os.environ.get("AGENTE_LOCAL_PL_FILE", "")
 
     def interpret(raw_files):
-        if drive_service and folder_id and drive_file_name:
-            file_id = find_file_id(drive_service, drive_file_name, folder_id)
-            wb_bytes = download_file(drive_service, file_id)
-        elif ruta_local and os.path.exists(ruta_local):
-            with open(ruta_local, "rb") as f:
-                wb_bytes = f.read()
-        else:
-            raise RuntimeError("No hay fuente configurada para el archivo P&L")
+        # raw_files = {slot: ruta} de los archivos subidos en Orión. El P&L usa el
+        # ContPaq "Movimientos Auxiliares" que el usuario sube (ya no se baja de Drive).
+        ruta = (raw_files or {}).get("movimientos")
+        if not ruta or not os.path.exists(ruta):
+            raise RuntimeError("Falta el archivo de Movimientos Auxiliares (P&L) subido")
+        with open(ruta, "rb") as f:
+            wb_bytes = f.read()
         return interpret_pl(wb_bytes, client)
 
     return interpret

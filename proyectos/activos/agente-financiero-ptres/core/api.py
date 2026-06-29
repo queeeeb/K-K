@@ -12,7 +12,7 @@ from slowapi.util import get_remote_address
 
 from typing import Optional
 
-from core import audit_log, auth, registry
+from core import audit_log, auth, registry, uploads
 from core.db import get_connection, init_db
 from core.lock import LockHeldError, acquire_lock, release_lock
 
@@ -113,28 +113,48 @@ def _validar_pipeline(pipeline: str) -> str:
 
 
 @app.post("/procesar/{pipeline}")
-def procesar(pipeline: str, body: ProcesarRequest, usuario_autenticado: str = Depends(get_current_user)):
+async def procesar(pipeline: str, request: Request, usuario_autenticado: str = Depends(get_current_user)):
     spec = _validar_pipeline(pipeline)
-    conn = _conn()
-    token = str(uuid.uuid4())
 
+    form = await request.form()
+    mes = form.get("mes")
+    if not mes:
+        raise HTTPException(status_code=400, detail="Falta el campo 'mes'")
+
+    subidas = {k: v for k, v in form.items() if hasattr(v, "filename")}
+    nombres = {slot: f.filename for slot, f in subidas.items()}
     try:
-        acquire_lock(conn, pipeline, body.mes, token=token, locked_by=usuario_autenticado)
+        uploads.validar_subidas(pipeline, nombres)
+    except uploads.SubidaInvalida as exc:
+        raise HTTPException(status_code=400, detail=exc.detalle)
+
+    token = str(uuid.uuid4())
+    archivos_bytes = {slot: (f.filename, await f.read()) for slot, f in subidas.items()}
+    for f in subidas.values():
+        await f.close()
+    rutas = uploads.guardar_archivos(token, archivos_bytes) if archivos_bytes else {}
+
+    conn = _conn()
+    try:
+        acquire_lock(conn, pipeline, mes, token=token, locked_by=usuario_autenticado)
     except LockHeldError as exc:
+        uploads.limpiar_token(token)
         raise HTTPException(status_code=409, detail=f"Locked by {exc.locked_by}")
 
     try:
-        raw_files = {source: None for source in spec.sources}
-        estructura = spec.interpret(raw_files)
+        # raw_files = {slot: ruta del archivo subido}; el interpret de cada pipeline
+        # lee de ahí (P&L real usa el archivo subido; Summary mock lo ignora).
+        estructura = spec.interpret(rutas)
         plan = spec.calculate(estructura, estado_anterior=None)
 
         conn.execute(
             "INSERT INTO plans (token, pipeline, mes, plan_json, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
-            (token, pipeline, body.mes, json.dumps(plan)),
+            (token, pipeline, mes, json.dumps(plan)),
         )
         conn.commit()
     except Exception:
-        release_lock(conn, pipeline, body.mes)
+        release_lock(conn, pipeline, mes)
+        uploads.limpiar_token(token)
         raise
 
     return {"token": token, "resumen": plan["resumen"]}
@@ -169,6 +189,7 @@ def confirmar(pipeline: str, body: TokenRequest, usuario_autenticado: str = Depe
     release_lock(conn, pipeline, row["mes"])
     conn.execute("DELETE FROM plans WHERE token = ?", (body.token,))
     conn.commit()
+    uploads.limpiar_token(body.token)
 
     return {"reporte": reporte}
 
