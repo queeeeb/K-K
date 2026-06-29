@@ -39,6 +39,8 @@ export default function App() {
   const [lockedBy,   setLockedBy]   = useState('')
   const [bitacoraData, setBitacoraData] = useState(null)
   const [pendientesItems, setPendientesItems] = useState([])
+  const [archivos, setArchivos] = useState({})
+  function setArchivo(slot, file) { setArchivos(a => ({ ...a, [slot]: file })) }
 
   const pact = PIPELINES.find(p => p.id === pipeline)
 
@@ -56,7 +58,7 @@ export default function App() {
     setScreen('login')
   }
 
-  const sharedProps = { usuario, pipeline, setPipeline, mes, setMes, plan, planToken: plan?.token, reporte, pact, MESES, lockedBy, errorMsg, pendientesItems }
+  const sharedProps = { usuario, pipeline, setPipeline, mes, setMes, plan, planToken: plan?.token, reporte, pact, MESES, lockedBy, errorMsg, pendientesItems, archivos, setArchivo }
 
   if (screen === 'login') {
     return <Login onSuccess={(u) => { setUsuario(u); setScreen('panel') }} />
@@ -96,8 +98,9 @@ export default function App() {
                 onProcesar={async () => {
                   setScreen('processing')
                   try {
-                    const data = await api.procesar(pipeline, mes)
+                    const data = await api.procesar(pipeline, mes, archivos)
                     setPlan(data)
+                    setArchivos({})
                     setScreen('summary')
                   } catch (err) {
                     if (err.locked) {

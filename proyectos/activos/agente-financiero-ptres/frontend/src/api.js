@@ -46,11 +46,26 @@ async function login(usuario, password) {
   return data
 }
 
-async function procesar(pipeline, mes) {
-  return _fetch(`/procesar/${pipeline}`, {
-    method: 'POST',
-    body: JSON.stringify({ mes }),
-  })
+async function procesar(pipeline, mes, archivos = {}) {
+  const fd = new FormData()
+  fd.append('mes', mes)
+  for (const [slot, file] of Object.entries(archivos)) {
+    if (file) fd.append(slot, file)
+  }
+  const headers = {}
+  if (_token) headers['Authorization'] = `Bearer ${_token}`
+  const res = await fetch(`${BASE}/procesar/${pipeline}`, { method: 'POST', headers, body: fd })
+  if (res.status === 409) {
+    const b = await res.json()
+    const err = new Error('Mes bloqueado'); err.locked = true
+    err.locked_by = b.detail?.replace('Locked by ', '') ?? 'otro usuario'
+    throw err
+  }
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}))
+    throw new Error(b.detail || `Error ${res.status}`)
+  }
+  return res.json()
 }
 
 async function confirmar(pipeline, token) {

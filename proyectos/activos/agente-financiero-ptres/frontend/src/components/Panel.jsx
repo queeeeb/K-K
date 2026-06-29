@@ -1,6 +1,7 @@
 import { CheckCircle2, TrendingUp, Wallet, Calendar, ChevronDown, ChevronRight, Cpu, Lock, Clock, XCircle } from 'lucide-react'
 import Money from './Money'
 import StatusPill from './StatusPill'
+import { slotsDe } from '../uploadSpec'
 
 const KPIS = [
   { l: 'Último cierre',      v: 'Abril 2026', sub: '8 filas escritas',   icon: CheckCircle2, tone: 'text-emerald-600', num: false },
@@ -41,8 +42,11 @@ function BannerPendientes({ items, onRetomar, onCancelar }) {
   )
 }
 
-export default function Panel({ pact, mes, setMes, MESES, lockedBy, pendientesItems, onProcesar, onRetomar, onCancelarPendiente }) {
+export default function Panel({ pact, mes, setMes, MESES, lockedBy, pendientesItems, onProcesar, onRetomar, onCancelarPendiente, archivos = {}, setArchivo }) {
   const Icon = pact.icon
+  const slots = slotsDe(pact.id)
+  const faltan = Object.keys(slots).filter(s => !archivos[s])
+  const completo = faltan.length === 0
 
   return (
     <div className="space-y-6">
@@ -90,12 +94,28 @@ export default function Panel({ pact, mes, setMes, MESES, lockedBy, pendientesIt
               <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
           </div>
-          <button onClick={onProcesar} disabled={!!lockedBy}
+          <button onClick={onProcesar} disabled={!!lockedBy || !completo}
             className={`flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition focus:ring-4 ${
-              lockedBy ? 'cursor-not-allowed bg-slate-300' : 'bg-slate-900 hover:bg-slate-800 focus:ring-slate-900/20'}`}>
+              (lockedBy || !completo) ? 'cursor-not-allowed bg-slate-300' : 'bg-slate-900 hover:bg-slate-800 focus:ring-slate-900/20'}`}>
             Procesar {pact.nombre} <ChevronRight size={16} />
           </button>
         </div>
+
+        {Object.keys(slots).length > 0 && (
+          <div className="border-t border-slate-100 px-5 py-4">
+            <p className="mb-2 text-sm font-medium text-slate-700">Archivos del mes</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {Object.entries(slots).map(([slot, etiqueta]) => (
+                <label key={slot} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50">
+                  <input type="file" accept=".xlsx,.xlsm" className="hidden"
+                    onChange={e => setArchivo(slot, e.target.files[0])} />
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${archivos[slot] ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <span className="min-w-0 flex-1 truncate text-slate-600">{archivos[slot]?.name ?? etiqueta}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {lockedBy && (
           <div className="mx-5 mb-5 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3.5">
