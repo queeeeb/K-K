@@ -43,11 +43,23 @@ export default function ResumenPL({ pact, mes, resumen, onConfirmar, onRechazar 
         <p className="text-sm font-medium text-amber-900">Nada se ha guardado todavía. Revisa los totales y aprueba para escribir el P&amp;L.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ingresos totales</p>
           <p className="mt-2 font-num text-2xl font-bold tabular-nums text-emerald-600">
             <Money value={resumen.incomes} />
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Gastos operativos</p>
+          <p className="mt-2 font-num text-2xl font-bold tabular-nums text-rose-600">
+            <Money value={resumen.expenses} />
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Utilidad operativa</p>
+          <p className={`mt-2 font-num text-2xl font-bold tabular-nums ${resumen.operating_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <Money value={resumen.operating_profit} />
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">

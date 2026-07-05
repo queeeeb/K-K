@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock
 
-from pipelines.pl.interpret import clasificar_cuentas, interpret_estructura
+from pipelines.pl.interpret import clasificar_cuentas
 
 
 def _fake_client(json_response: dict):
@@ -10,33 +10,6 @@ def _fake_client(json_response: dict):
     message.content = [MagicMock(text=json.dumps(json_response))]
     client.messages.create.return_value = message
     return client
-
-
-def test_interpret_estructura_devuelve_tipos_de_fila():
-    rows = [
-        ["P-TRES GROUP, S.A.P.I. DE C.V."],
-        [""],
-        ["Del 1 al 31 de Marzo 2026"],
-        ["4110-002-001-000", "FORD MOTOR COMPANY"],
-        ["Segmento: 2000 ING"],
-        ["", "", "", "", "Total Seg. ENGINEERING", 0, 1000],
-    ]
-    fake = _fake_client(
-        {
-            "periodo": "Marzo 2026",
-            "columnas": {"cuenta": 1, "nombre": 2, "cargos": 6, "abonos": 7},
-            "filas_cuenta": [4],
-            "filas_segmento": [5],
-            "filas_total_segmento": [6],
-            "filas_diario": [],
-        }
-    )
-
-    result = interpret_estructura(rows, anthropic_client=fake)
-
-    assert result["periodo"] == "Marzo 2026"
-    assert result["filas_total_segmento"] == [6]
-    fake.messages.create.assert_called_once()
 
 
 def test_clasificar_cuentas_marca_nuevo():

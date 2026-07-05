@@ -98,13 +98,25 @@ def _escribir_hoja(sheet, plan, periodo, consolidado):
     )
 
 
+def _ajustar_columnas(sheet) -> None:
+    for col in sheet.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            if cell.value is not None:
+                max_len = max(max_len, len(str(cell.value)))
+        sheet.column_dimensions[col_letter].width = min(max_len + 4, 60)
+
+
 def escribir_pl(ruta_destino: str, plan: dict, periodo: str) -> None:
     wb = Workbook()
     consolidado = wb.active
     consolidado.title = "CONSOLIDATED"
     _escribir_hoja(consolidado, plan, periodo, consolidado=True)
+    _ajustar_columnas(consolidado)
 
     por_segmento = wb.create_sheet("BY SEGMENT")
     _escribir_hoja(por_segmento, plan, periodo, consolidado=False)
+    _ajustar_columnas(por_segmento)
 
     wb.save(ruta_destino)
