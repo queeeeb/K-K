@@ -79,9 +79,9 @@ def make_overview_consulting_mayo() -> None:
     wb = Workbook()
     sheet = wb.active
     sheet.title = "2026.05"
-    sheet.append(["STATUS", "PROJECT", "Moneda", "Total honorarios"])
-    sheet.append(["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", "USD", 600])
-    sheet.append(["", "", "", 400])
+    sheet.append(["STATUS", "PROJECT", "Consultor", "Total"])
+    sheet.append(["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", "Gerardo", 500])
+    sheet.append(["", "", "Total honorarios", 600])
 
     wb.save(FIXTURES_DIR / "overview_consulting_mayo.xlsx")
 

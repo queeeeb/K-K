@@ -29,7 +29,7 @@ def client(tmp_path, monkeypatch):
             "facturas_mes": [
                 {"proyecto": "26gmx3000.001-Cliente Uno- Proyecto Uno", "estado": "Pagado"}
             ],
-            "provisiones_nuevas": [
+            "provisiones_actuales": [
                 {"proyecto": "26gmx2000.005", "monto_mxn": 3000, "cc": 2000, "cliente": "Cliente Cuatro"}
             ],
         }
@@ -79,3 +79,44 @@ def test_procesar_confirmar_escribe_archivo(client):
     assert hoja.cell(row=14, column=8).value == "26gmx2000.005"
     for row in range(1, 12):
         assert hoja.cell(row=row, column=1).value == f"KPI fila {row}"
+
+
+def test_nombrar_actualiza_plan_antes_de_confirmar(client):
+    test_client, destino, headers = client
+
+    dummy = ("x.xlsx", b"PK\x03\x04", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    files = {slot: dummy for slot in ("base", "facturacion", "ds", "engineering", "consulting")}
+    procesar = test_client.post(
+        "/procesar/summary", data={"mes": "2026_May"}, files=files, headers=headers
+    )
+    token = procesar.json()["token"]
+    assert procesar.json()["resumen"]["nuevas"][0]["cliente"] == "Cliente Cuatro"
+
+    nombrar = test_client.post(
+        "/nombrar/summary",
+        json={"token": token, "nombres": {"26gmx2000.005": "Cliente Cuatro Renombrado"}},
+        headers=headers,
+    )
+    assert nombrar.status_code == 200
+    assert nombrar.json()["resumen"]["nuevas"][0]["cliente"] == "Cliente Cuatro Renombrado"
+
+    confirmar = test_client.post("/confirmar/summary", json={"token": token}, headers=headers)
+    assert confirmar.status_code == 200
+
+    wb = load_workbook(destino)
+    hoja = wb["2026_May"]
+    assert hoja.cell(row=14, column=6).value == "Cliente Cuatro Renombrado"
+
+
+def test_confirmar_sin_nombrar_permite_continuar(client):
+    test_client, destino, headers = client
+
+    dummy = ("x.xlsx", b"PK\x03\x04", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    files = {slot: dummy for slot in ("base", "facturacion", "ds", "engineering", "consulting")}
+    procesar = test_client.post(
+        "/procesar/summary", data={"mes": "2026_May"}, files=files, headers=headers
+    )
+    token = procesar.json()["token"]
+
+    confirmar = test_client.post("/confirmar/summary", json={"token": token}, headers=headers)
+    assert confirmar.status_code == 200

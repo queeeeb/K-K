@@ -25,6 +25,11 @@ class TokenRequest(BaseModel):
     token: str
 
 
+class NombrarRequest(BaseModel):
+    token: str
+    nombres: dict[str, str]
+
+
 class LoginRequest(BaseModel):
     usuario: str
     password: str
@@ -79,17 +84,24 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+_MEDIA_TYPES = {
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "xlsm": "application/vnd.ms-excel.sheet.macroEnabled.12",
+}
+
+
 @app.get("/descargar/{archivo}")
 def descargar(archivo: str, usuario_autenticado: str = Depends(get_current_user)):
     import re
     from fastapi.responses import FileResponse
-    if not re.fullmatch(r"[A-Za-z0-9_\-\.]+\.xlsx", archivo):
+    match = re.fullmatch(r"[A-Za-z0-9_\-\.]+\.(xlsx|xlsm)", archivo)
+    if not match:
         raise HTTPException(status_code=400, detail="Nombre de archivo inválido")
     reportes_dir = os.environ.get("AGENTE_REPORTES_DIR", "reportes")
     ruta = os.path.join(reportes_dir, archivo)
     if not os.path.exists(ruta):
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
-    return FileResponse(ruta, filename=archivo, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return FileResponse(ruta, filename=archivo, media_type=_MEDIA_TYPES[match.group(1)])
 
 
 @app.post("/login")
@@ -142,9 +154,9 @@ async def procesar(pipeline: str, request: Request, usuario_autenticado: str = D
         raise HTTPException(status_code=409, detail=f"Locked by {exc.locked_by}")
 
     try:
-        # raw_files = {slot: ruta del archivo subido}; el interpret de cada pipeline
-        # lee de ahí (P&L real usa el archivo subido; Summary mock lo ignora).
-        estructura = spec.interpret(rutas)
+        # raw_files = {slot: ruta del archivo subido} + '_mes' (mes objetivo del proceso).
+        # El interpret de cada pipeline lee de ahí; los que no necesitan '_mes' lo ignoran.
+        estructura = spec.interpret({**rutas, "_mes": mes})
         plan = spec.calculate(estructura, estado_anterior=None)
 
         conn.execute(
@@ -158,6 +170,26 @@ async def procesar(pipeline: str, request: Request, usuario_autenticado: str = D
         raise
 
     return {"token": token, "resumen": plan["resumen"]}
+
+
+@app.post("/nombrar/{pipeline}")
+def nombrar(pipeline: str, body: NombrarRequest, usuario_autenticado: str = Depends(get_current_user)):
+    spec = _validar_pipeline(pipeline)
+    if spec.nombrar is None:
+        raise HTTPException(status_code=400, detail=f"Pipeline '{pipeline}' no soporta nombrar")
+
+    conn = _conn()
+    row = conn.execute(
+        "SELECT plan_json FROM plans WHERE token = ? AND pipeline = ?", (body.token, pipeline)
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Token not found")
+
+    plan = spec.nombrar(json.loads(row["plan_json"]), body.nombres)
+    conn.execute("UPDATE plans SET plan_json = ? WHERE token = ?", (json.dumps(plan), body.token))
+    conn.commit()
+
+    return {"resumen": plan["resumen"]}
 
 
 @app.post("/confirmar/{pipeline}")

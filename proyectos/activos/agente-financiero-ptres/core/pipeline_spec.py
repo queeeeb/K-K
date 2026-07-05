@@ -9,6 +9,7 @@ class PipelineSpec:
     interpret: Callable[..., Any]
     calculate: Callable[..., Any]
     write: Callable[..., Any]
+    nombrar: Callable[..., Any] | None = None
 
 
 @dataclass

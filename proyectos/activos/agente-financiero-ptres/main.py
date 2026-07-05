@@ -20,11 +20,61 @@ def _mock_interpret_summary(raw_files):
         "facturas_mes": [
             {"proyecto": "26gmx3000.001-BorgWarner MX- Proyecto Uno", "estado": "Pagado"}
         ],
-        "provisiones_nuevas": [
+        "provisiones_actuales": [
             {"proyecto": "26gmx2000.005", "monto_mxn": 200000, "cc": 2000, "cliente": "Cliente Nuevo"}
         ],
         "alertas": [],
     }
+
+
+def _build_interpret_summary():
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key or api_key.startswith("sk-ant-local"):
+        return None
+
+    import anthropic
+    from pipelines.summary.orquestador import interpretar_summary
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    def interpret(raw_files):
+        faltantes = [
+            slot for slot in ("base", "facturacion", "ds", "engineering", "consulting")
+            if not raw_files.get(slot) or not os.path.exists(raw_files[slot])
+        ]
+        if faltantes:
+            raise RuntimeError(f"Faltan archivos subidos para Summary: {', '.join(faltantes)}")
+        return interpretar_summary(raw_files, client, mes=raw_files.get("_mes"))
+
+    return interpret
+
+
+def _build_write_summary():
+    from pipelines.summary.write import escribir_hoja_mes
+
+    reportes_dir = os.environ.get("AGENTE_REPORTES_DIR", "reportes")
+    os.makedirs(reportes_dir, exist_ok=True)
+
+    def write(detalle, archivo_destino=None):
+        nombre = f"Summary_{detalle['hoja_mes_nuevo']}.xlsm"
+        ruta = os.path.join(reportes_dir, nombre)
+        escribir_hoja_mes(
+            ruta_origen=detalle["ruta_origen"],
+            ruta_destino=ruta,
+            hoja_mes_anterior=detalle["hoja_mes_anterior"],
+            hoja_mes_nuevo=detalle["hoja_mes_nuevo"],
+            filas=detalle["filas"],
+        )
+        counts = detalle["counts"]
+        return {
+            "archivo": nombre,
+            "filas_escritas": counts["activas"] + counts["nuevas"],
+            "canceladas": counts["canceladas"],
+            "activas": counts["activas"],
+            "nuevas": counts["nuevas"],
+        }
+
+    return write
 
 
 def _build_drive_service():
@@ -93,23 +143,29 @@ if _interpret_pl is None:
         }
 
 
+_interpret_summary_real = _build_interpret_summary()
+
 _summary_spec = build_summary_spec(
-    interpret_override=_mock_interpret_summary,
+    interpret_override=_interpret_summary_real or _mock_interpret_summary,
     ruta_origen="agente.db",
     ruta_destino="agente.db",
     hoja_mes_anterior="2026_Abr",
     hoja_mes_nuevo="2026_May",
 )
-register(dataclasses.replace(
-    _summary_spec,
-    write=lambda detalle, archivo_destino: {
-        "archivo": "mock_summary_mayo.xlsm",
-        "filas_escritas": detalle["counts"]["activas"] + detalle["counts"]["nuevas"],
-        "canceladas": detalle["counts"]["canceladas"],
-        "activas": detalle["counts"]["activas"],
-        "nuevas": detalle["counts"]["nuevas"],
-    },
-))
+
+if _interpret_summary_real is not None:
+    register(dataclasses.replace(_summary_spec, write=_build_write_summary()))
+else:
+    register(dataclasses.replace(
+        _summary_spec,
+        write=lambda detalle, archivo_destino: {
+            "archivo": "mock_summary_mayo.xlsm",
+            "filas_escritas": detalle["counts"]["activas"] + detalle["counts"]["nuevas"],
+            "canceladas": detalle["counts"]["canceladas"],
+            "activas": detalle["counts"]["activas"],
+            "nuevas": detalle["counts"]["nuevas"],
+        },
+    ))
 
 _pl_spec = build_pl_spec(
     interpret_override=_interpret_pl,
