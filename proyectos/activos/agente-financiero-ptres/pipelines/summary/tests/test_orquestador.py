@@ -55,19 +55,36 @@ def test_interpretar_summary_combina_las_4_fuentes():
     assert "26gmx7000.002" in resultado["codigos_conocidos"]
 
 
-def test_separar_sospechosos_excluye_codigos_con_espacio_y_alerta():
+def test_separar_sospechosos_acepta_consecutivo_odoo_con_o_sin_espacio():
     from pipelines.summary.orquestador import _separar_sospechosos
 
     provisiones = [
         {"proyecto": "26gmx3000.001", "monto_mxn": 1000, "cc": 3000, "cliente": "Cliente Uno"},
         {"proyecto": "26gmx7000. S02968", "monto_mxn": 500, "cc": 7000, "cliente": ""},
+        {"proyecto": "25gmx7000.S02393", "monto_mxn": 700, "cc": 7000, "cliente": ""},
+    ]
+
+    validas, alertas = _separar_sospechosos(provisiones)
+
+    assert {p["proyecto"] for p in validas} == {
+        "26gmx3000.001", "26gmx7000. S02968", "25gmx7000.S02393",
+    }
+    assert alertas == []
+
+
+def test_separar_sospechosos_excluye_codigos_sin_estructura_gmx_y_alerta():
+    from pipelines.summary.orquestador import _separar_sospechosos
+
+    provisiones = [
+        {"proyecto": "26gmx3000.001", "monto_mxn": 1000, "cc": 3000, "cliente": "Cliente Uno"},
+        {"proyecto": "Se facturó junto con Abril", "monto_mxn": 500, "cc": None, "cliente": ""},
     ]
 
     validas, alertas = _separar_sospechosos(provisiones)
 
     assert [p["proyecto"] for p in validas] == ["26gmx3000.001"]
     assert len(alertas) == 1
-    assert "26gmx7000. S02968" in alertas[0]
+    assert "Se facturó junto con Abril" in alertas[0]
 
 
 def test_interpretar_summary_reporta_alertas_de_codigos_sospechosos():

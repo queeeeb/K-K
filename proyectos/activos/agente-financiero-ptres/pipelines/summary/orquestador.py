@@ -1,3 +1,5 @@
+import re
+
 from openpyxl import load_workbook
 
 from pipelines.summary.extract import leer_provisiones_mes_anterior
@@ -22,10 +24,13 @@ def _cargar_rows(ruta: str, hoja: str | None = None) -> list[list]:
     return [[cell.value for cell in row] for row in sheet.iter_rows()]
 
 
+_FORMATO_CODIGO_VALIDO = re.compile(r"^\d{2}gmx\d+\.")
+
+
 def _separar_sospechosos(provisiones: list[dict]) -> tuple[list[dict], list[str]]:
     validas, alertas = [], []
     for p in provisiones:
-        if " " in p["proyecto"]:
+        if not _FORMATO_CODIGO_VALIDO.match(p["proyecto"]):
             alertas.append(
                 f"Código con formato sospechoso excluido de la extracción automática, "
                 f"requiere revisión manual: {p['proyecto']!r}"
