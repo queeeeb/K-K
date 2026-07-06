@@ -158,6 +158,10 @@ export default function App() {
                 pact={pact}
                 mes={MESES.find(m => m.value === mes)?.label ?? mes}
                 resumen={plan?.resumen}
+                onNombrar={async (nombres) => {
+                  const data = await api.nombrar(pipeline, plan.token, nombres)
+                  setPlan(p => ({ ...p, resumen: data.resumen }))
+                }}
                 onConfirmar={async () => {
                   setScreen('writing')
                   try {
@@ -179,7 +183,7 @@ export default function App() {
                 }}
               />
             )}
-            {screen === 'writing'   && <Loader titulo="Escribiendo y subiendo a Drive" sub={MESES.find(m => m.value === mes)?.label ?? mes} mode="writing" />}
+            {screen === 'writing'   && <Loader titulo="Escribiendo y generando reporte" sub={MESES.find(m => m.value === mes)?.label ?? mes} mode="writing" />}
             {screen === 'report'    && <Reporte reporte={reporte} mes={MESES.find(m => m.value === mes)?.label ?? mes} onBack={() => setScreen('panel')} />}
             {screen === 'rejected'  && <Rechazado onBack={() => setScreen('panel')} />}
             {screen === 'bitacora' && <Bitacora entradas={bitacoraData || []} />}

@@ -97,6 +97,13 @@ async function bitacora(pipeline) {
   return _fetch(`/bitacora${qs}`)
 }
 
+async function nombrar(pipeline, token, nombres) {
+  return _fetch(`/nombrar/${pipeline}`, {
+    method: 'POST',
+    body: JSON.stringify({ token, nombres }),
+  })
+}
+
 async function descargar(archivo) {
   const res = await fetch(`/descargar/${archivo}`, {
     headers: { Authorization: `Bearer ${_token}` },
@@ -111,4 +118,4 @@ async function descargar(archivo) {
   URL.revokeObjectURL(url)
 }
 
-export default { login, procesar, confirmar, rechazar, recuperar, pendientes, bitacora, descargar, setToken, clearToken, getToken, getUsuario }
+export default { login, procesar, confirmar, rechazar, recuperar, pendientes, bitacora, descargar, nombrar, setToken, clearToken, getToken, getUsuario }

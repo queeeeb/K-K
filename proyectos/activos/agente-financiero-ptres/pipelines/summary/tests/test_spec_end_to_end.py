@@ -77,6 +77,8 @@ def test_procesar_confirmar_escribe_archivo(client):
     wb = load_workbook(destino)
     hoja = wb["2026_May"]
     assert hoja.cell(row=14, column=8).value == "26gmx2000.005"
+    assert hoja.cell(row=15, column=8).value == "26gmx3000.001"
+    assert hoja.cell(row=15, column=2).value == "Cancelar"
     for row in range(1, 12):
         assert hoja.cell(row=row, column=1).value == f"KPI fila {row}"
 

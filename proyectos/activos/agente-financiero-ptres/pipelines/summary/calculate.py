@@ -40,6 +40,9 @@ def reconciliar(
                 **provision,
                 "monto_mxn": actual["monto_mxn"],
                 "monto_mxn_anterior": provision["monto_mxn"],
+                "moneda": actual.get("moneda", provision.get("moneda", "MXN")),
+                "monto_original": actual.get("monto_original", actual["monto_mxn"]),
+                "tc": actual.get("tc", 1),
             })
         else:
             activas.append({**provision, "monto_mxn_anterior": provision["monto_mxn"]})

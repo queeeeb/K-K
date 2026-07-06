@@ -59,8 +59,12 @@ def make_provisiones_ds_mayo() -> None:
     sub_headers = ["PROVISION", "NUM.FACTURA", "MONTO", "Diferencia+", "Diferencia-", "Acumulados"]
     for col, header in enumerate(sub_headers, start=2):
         sheet.cell(row=2, column=col, value=f"Mayo {header}")
+    sheet.cell(row=1, column=7, value="Cliente")
+    sheet.cell(row=1, column=8, value="Nombre")
     sheet.cell(row=3, column=1, value="26gmx7000.002")
     sheet.cell(row=3, column=2, value=5000)
+    sheet.cell(row=3, column=7, value="Cliente Dos")
+    sheet.cell(row=3, column=8, value="Proyecto Dos DS")
 
     wb.save(FIXTURES_DIR / "provisiones_ds_mayo.xlsx")
 
@@ -69,8 +73,8 @@ def make_provisiones_engineering_mayo() -> None:
     wb = Workbook()
     sheet = wb.active
     sheet.title = "Hoja1"
-    sheet.append(["Proyecto", "Jan", "Feb", "Mar", "Apr", "May"])
-    sheet.append(["26gmx2000.005-Cliente Cuatro", 0, 0, 0, 0, 3000])
+    sheet.append(["Proyecto", "Jan", "Feb", "Mar", "Apr", "May", "Nombre"])
+    sheet.append(["26gmx2000.005-Cliente Cuatro", 0, 0, 0, 0, 3000, "Proyecto Cuatro Eng"])
 
     wb.save(FIXTURES_DIR / "provisiones_engineering_mayo.xlsx")
 

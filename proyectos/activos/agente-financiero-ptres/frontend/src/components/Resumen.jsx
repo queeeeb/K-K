@@ -1,4 +1,5 @@
-import { ShieldCheck, AlertTriangle, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { useState } from 'react'
+import { ShieldCheck, AlertTriangle, Clock, CheckCircle2, XCircle, Tag } from 'lucide-react'
 import Money from './Money'
 import StatusPill from './StatusPill'
 import Delta from './Delta'
@@ -17,10 +18,31 @@ function calcularTotales(resumen) {
   return Object.values(mapa).sort((a, b) => a.cc - b.cc)
 }
 
-export default function Resumen({ pact, mes, resumen, onConfirmar, onRechazar }) {
+export default function Resumen({ pact, mes, resumen, onConfirmar, onRechazar, onNombrar }) {
+  const [nombres, setNombres] = useState({})
+  const [ocultarNombrar, setOcultarNombrar] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+
   if (!resumen) return null
   const total = resumen.canceladas.length + resumen.activas.length + resumen.nuevas.length
   const totales = calcularTotales(resumen)
+  const sinNombre = resumen.nuevas.filter(r => r.codigo_nuevo)
+  const hayNombres = Object.values(nombres).some(n => n.trim() !== '')
+
+  async function guardarYContinuar() {
+    const listos = Object.fromEntries(
+      Object.entries(nombres).filter(([, v]) => v.trim() !== '')
+    )
+    if (Object.keys(listos).length === 0) { setOcultarNombrar(true); return }
+    setGuardando(true)
+    try {
+      await onNombrar(listos)
+      setNombres({})
+      setOcultarNombrar(true)
+    } finally {
+      setGuardando(false)
+    }
+  }
 
   return (
     <div className="space-y-6 pb-24">
@@ -49,6 +71,38 @@ export default function Resumen({ pact, mes, resumen, onConfirmar, onRechazar })
               <p className="mt-2 font-num text-2xl font-bold tabular-nums text-slate-900"><Money value={t.total} /></p>
             </div>
           ))}
+        </div>
+      )}
+
+      {sinNombre.length > 0 && !ocultarNombrar && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4">
+          <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-blue-900">
+            <Tag size={16} /> Códigos nuevos sin nombre de cliente · {sinNombre.length}
+          </p>
+          <div className="space-y-2.5">
+            {sinNombre.map((r, i) => (
+              <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <StatusPill tone="cc">{r.cc}</StatusPill>
+                <span className="font-num text-sm text-slate-600 sm:w-56">{r.proyecto}</span>
+                <input
+                  type="text"
+                  placeholder="Nombre del cliente"
+                  value={nombres[r.proyecto] ?? ''}
+                  onChange={e => setNombres(n => ({ ...n, [r.proyecto]: e.target.value }))}
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex justify-end gap-3">
+            <button onClick={() => setOcultarNombrar(true)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
+              Continuar sin nombrar
+            </button>
+            <button onClick={guardarYContinuar} disabled={!hayNombres || guardando}
+              className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+              {guardando ? 'Guardando…' : 'Guardar y continuar'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -94,7 +148,7 @@ export default function Resumen({ pact, mes, resumen, onConfirmar, onRechazar })
         {resumen.nuevas.map((r, i) => (
           <Row key={i} align={[false, false, false, true]} cells={[
             <StatusPill tone="cc">{r.cc}</StatusPill>,
-            r.cliente,
+            r.codigo_nuevo ? <StatusPill tone="review">Sin nombre</StatusPill> : r.cliente,
             r.proyecto,
             <Money value={r.monto_mxn} className="font-medium text-slate-900" />,
           ]} />

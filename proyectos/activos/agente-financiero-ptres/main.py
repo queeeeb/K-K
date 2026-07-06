@@ -68,7 +68,7 @@ def _build_write_summary():
         counts = detalle["counts"]
         return {
             "archivo": nombre,
-            "filas_escritas": counts["activas"] + counts["nuevas"],
+            "filas_escritas": counts["activas"] + counts["nuevas"] + counts["canceladas"],
             "canceladas": counts["canceladas"],
             "activas": counts["activas"],
             "nuevas": counts["nuevas"],
@@ -160,7 +160,7 @@ else:
         _summary_spec,
         write=lambda detalle, archivo_destino: {
             "archivo": "mock_summary_mayo.xlsm",
-            "filas_escritas": detalle["counts"]["activas"] + detalle["counts"]["nuevas"],
+            "filas_escritas": detalle["counts"]["activas"] + detalle["counts"]["nuevas"] + detalle["counts"]["canceladas"],
             "canceladas": detalle["counts"]["canceladas"],
             "activas": detalle["counts"]["activas"],
             "nuevas": detalle["counts"]["nuevas"],

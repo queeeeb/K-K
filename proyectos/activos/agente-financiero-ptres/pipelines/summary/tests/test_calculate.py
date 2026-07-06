@@ -131,6 +131,19 @@ def test_reconciliar_actualiza_monto_de_activa_encontrada_en_fuentes():
     assert resultado["activas"][0]["monto_mxn_anterior"] == 1000
 
 
+def test_reconciliar_activa_toma_moneda_y_tc_del_mes_actual():
+    provisiones_anteriores = [{"proyecto": "26gmx7000.002", "monto_mxn": 17950, "cc": 7000, "cliente": "Cliente Uno", "moneda": "USD", "monto_original": 1000, "tc": 17.95}]
+    provisiones_actuales = [{"proyecto": "26gmx7000.002", "monto_mxn": 18130, "cc": 7000, "cliente": "Cliente Uno", "moneda": "USD", "monto_original": 1000, "tc": 18.13}]
+
+    resultado = reconciliar(provisiones_anteriores, facturas_mes=[], provisiones_actuales=provisiones_actuales)
+
+    activa = resultado["activas"][0]
+    assert activa["moneda"] == "USD"
+    assert activa["monto_original"] == 1000
+    assert activa["tc"] == 18.13
+    assert activa["monto_mxn"] == 18130
+
+
 def test_reconciliar_no_duplica_activa_encontrada_como_nueva():
     provisiones_anteriores = [{"proyecto": "26gmx3000.001", "monto_mxn": 1000, "cc": 3000, "cliente": "Cliente Uno"}]
     provisiones_actuales = [{"proyecto": "26gmx3000.001", "monto_mxn": 1800, "cc": 3000, "cliente": "Cliente Uno"}]

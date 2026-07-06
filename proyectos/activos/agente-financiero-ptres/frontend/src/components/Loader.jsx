@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Loader2, Database, Sparkles, FileCheck, Calculator, FileSpreadsheet, CloudUpload, ShieldCheck } from 'lucide-react'
+import { Loader2, FileUp, Sparkles, FileCheck, Calculator, FileSpreadsheet, ShieldCheck } from 'lucide-react'
 import Stepper from './Stepper'
 
 const PASOS_PROCESO = [
-  { txt: 'Localizando archivos en Google Drive',        icon: Database },
+  { txt: 'Leyendo archivos subidos',        icon: FileUp },
   { txt: 'Interpretando fuentes con IA', sub: 'Facturación · DS · Engineering · Consulting', icon: Sparkles },
   { txt: 'Reconciliando provisiones vs. facturas',      icon: FileCheck },
   { txt: 'Calculando montos', sub: 'motor determinista', icon: Calculator },
@@ -13,7 +13,7 @@ const PASOS_PROCESO = [
 const PASOS_ESCRITURA = [
   { txt: 'Duplicando hoja del mes anterior',                                    icon: FileSpreadsheet },
   { txt: 'Escribiendo Sección B', sub: 'sin tocar el tablero KPI (filas 1–11)', icon: Calculator },
-  { txt: 'Subiendo archivo a Google Drive',                                     icon: CloudUpload },
+  { txt: 'Generando archivo para descarga',                                     icon: FileCheck },
 ]
 
 export default function Loader({ titulo, sub, mode }) {

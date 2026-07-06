@@ -4,7 +4,7 @@ import api from '../api'
 export default function Reporte({ reporte, mes, onBack }) {
   if (!reporte) return null
 
-  const esPL = !!reporte.net_profit !== undefined && reporte.archivo?.startsWith('PL_')
+  const esPL = reporte.archivo?.startsWith('PL_')
 
   const items = esPL ? [] : [
     ['Canceladas', reporte.canceladas,    'text-rose-600'],
@@ -26,14 +26,7 @@ export default function Reporte({ reporte, mes, onBack }) {
           <span className="font-num font-medium text-slate-900">{mes}</span>
         </p>
 
-        {esPL ? (
-          <button
-            onClick={() => api.descargar(reporte.archivo)}
-            className="mt-6 flex items-center gap-2 mx-auto rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-          >
-            <Download size={16} /> Descargar Excel
-          </button>
-        ) : (
+        {!esPL && (
           <div className="mt-6 grid grid-cols-4 gap-2">
             {items.map(([l, n, c]) => (
               <div key={l} className="rounded-lg border border-slate-100 bg-slate-50 py-3">
@@ -42,6 +35,15 @@ export default function Reporte({ reporte, mes, onBack }) {
               </div>
             ))}
           </div>
+        )}
+
+        {reporte.archivo && (
+          <button
+            onClick={() => api.descargar(reporte.archivo)}
+            className="mt-6 flex items-center gap-2 mx-auto rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+          >
+            <Download size={16} /> Descargar Excel
+          </button>
         )}
       </div>
 

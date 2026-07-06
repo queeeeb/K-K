@@ -29,16 +29,20 @@ def test_interpretar_summary_combina_las_4_fuentes():
     # orden de llamadas: facturacion, ds, engineering, consulting
     client = _fake_client_con_respuestas([
         {"proyecto_columna": 0, "estado_columna": 1},
-        {"provision_columna": 1, "codigo_columna": 0, "fila_inicio_datos": 2},
-        {"mes_columna": 5, "codigo_columna": 0, "fila_inicio_datos": 1},
+        {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
+        {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
         {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3},
     ])
 
-    resultado = interpretar_summary(raw_files, client, mes="2026_May")
+    resultado = interpretar_summary(raw_files, client, mes="2026-05")
 
     assert resultado["provisiones_mes_anterior"] == [
-        {"proyecto": "26gmx3000.001", "monto_mxn": 17950, "cc": 3000, "cliente": "Cliente Uno"},
-        {"proyecto": "26gmx7000.002", "monto_mxn": 5000, "cc": 7000, "cliente": "Cliente Dos"},
+        {"proyecto": "26gmx3000.001", "monto_mxn": 17950, "cc": 3000, "cliente": "Cliente Uno",
+         "nombre_proyecto": "Proyecto Uno", "moneda": "USD", "monto_original": 1000, "tc": 17.95,
+         "anio": 2026, "periodo": "Abril"},
+        {"proyecto": "26gmx7000.002", "monto_mxn": 5000, "cc": 7000, "cliente": "Cliente Dos",
+         "nombre_proyecto": "Proyecto Dos", "moneda": "MXN", "monto_original": 5000, "tc": 1,
+         "anio": 2026, "periodo": "Abril"},
     ]
     assert resultado["ruta_base"] == raw_files["base"]
     assert resultado["hoja_mes_anterior"] == "2026_Abr"
@@ -97,12 +101,12 @@ def test_interpretar_summary_reporta_alertas_de_codigos_sospechosos():
     }
     client = _fake_client_con_respuestas([
         {"proyecto_columna": 0, "estado_columna": 1},
-        {"provision_columna": 1, "codigo_columna": 0, "fila_inicio_datos": 2},
-        {"mes_columna": 5, "codigo_columna": 0, "fila_inicio_datos": 1},
+        {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
+        {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
         {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3},
     ])
 
-    resultado = interpretar_summary(raw_files, client, mes="2026_May")
+    resultado = interpretar_summary(raw_files, client, mes="2026-05")
 
     assert resultado["alertas"] == []
     proyectos = {p["proyecto"] for p in resultado["provisiones_actuales"]}

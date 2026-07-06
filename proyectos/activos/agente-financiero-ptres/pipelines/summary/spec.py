@@ -29,14 +29,30 @@ def build_summary_spec(
             alertas=estructura.get("alertas", []),
             codigos_conocidos=estructura.get("codigos_conocidos"),
         )
-        filas = [
-            [
-                "", "Provision", 2026, hoja_mes_nuevo_actual.split("_")[1], p["cc"], p["cliente"], "",
-                p["proyecto"], "MXN", p["monto_mxn"], 1, p["monto_mxn"], 0, p["monto_mxn"], 0, 0,
-                p["monto_mxn"], "", "",
+        anio_actual, periodo_actual = hoja_mes_nuevo_actual.split("_", 1)
+
+        def _fila(p: dict, cierre: str) -> list:
+            moneda = p.get("moneda", "MXN")
+            monto_original = p.get("monto_original", p["monto_mxn"])
+            tc = p.get("tc", 1)
+            anio = p.get("anio") or int(anio_actual)
+            periodo = p.get("periodo") or periodo_actual
+            cancelada = cierre == "Cancelar"
+            usd = monto_original if cancelada and moneda == "USD" else ""
+            mxn = p["monto_mxn"] if cancelada and moneda == "MXN" else ""
+            eur = monto_original if cancelada and moneda == "EUR" else ""
+            cad = monto_original if cancelada and moneda == "CAD" else ""
+            total_mxn = p["monto_mxn"] if cancelada else ""
+            return [
+                "", cierre, anio, periodo, p["cc"], p["cliente"], p.get("nombre_proyecto", ""),
+                p["proyecto"], moneda, monto_original, tc, p["monto_mxn"], usd, mxn, eur, cad,
+                total_mxn, "", "",
             ]
-            for p in resultado["activas"] + resultado["nuevas"]
-        ]
+
+        filas = (
+            [_fila(p, "Provision") for p in resultado["activas"] + resultado["nuevas"]]
+            + [_fila(p, "Cancelar") for p in resultado["canceladas"]]
+        )
         counts = {
             "canceladas": len(resultado["canceladas"]),
             "activas": len(resultado["activas"]),
@@ -63,7 +79,7 @@ def build_summary_spec(
         counts = detalle["counts"]
         return {
             "archivo": destino,
-            "filas_escritas": counts["activas"] + counts["nuevas"],
+            "filas_escritas": counts["activas"] + counts["nuevas"] + counts["canceladas"],
             "canceladas": counts["canceladas"],
             "activas": counts["activas"],
             "nuevas": counts["nuevas"],
