@@ -8,6 +8,28 @@ def extraer_codigo(texto: str, formato: str) -> str:
     raise ValueError(f"Formato de código desconocido: {formato}")
 
 
+def cruzar_cierres(
+    pares_facturacion: list[tuple[str, int, str]],
+    pares_notas_ds: list[tuple[str, int, str]],
+) -> tuple[list[dict], list[str]]:
+    set_fact = set(pares_facturacion)
+    set_notas = set(pares_notas_ds)
+    cierres, alertas = [], []
+    for par in sorted(set_fact | set_notas):
+        codigo, anio, mes = par
+        en_fact, en_notas = par in set_fact, par in set_notas
+        if en_fact and en_notas:
+            origen = "ambas"
+        elif en_fact:
+            origen = "facturacion"
+            alertas.append(f"Cierre de {codigo} ({mes} {anio}) detectado solo en Facturación.")
+        else:
+            origen = "notas_ds"
+            alertas.append(f"Cierre de {codigo} ({mes} {anio}) detectado solo en Notas DS.")
+        cierres.append({"codigo": codigo, "anio": anio, "mes": mes, "origen": origen})
+    return cierres, alertas
+
+
 def reconciliar(
     provisiones_mes_anterior: list[dict],
     facturas_mes: list[dict],

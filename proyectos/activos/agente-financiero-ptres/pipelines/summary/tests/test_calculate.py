@@ -1,4 +1,36 @@
-from pipelines.summary.calculate import actualizar_nombres_nuevas, extraer_codigo, reconciliar
+from pipelines.summary.calculate import (
+    actualizar_nombres_nuevas,
+    cruzar_cierres,
+    extraer_codigo,
+    reconciliar,
+)
+
+
+def test_cruzar_cierres_par_en_ambas_sin_alerta():
+    cierres, alertas = cruzar_cierres(
+        pares_facturacion=[("26gmx7000.010", 2026, "Marzo")],
+        pares_notas_ds=[("26gmx7000.010", 2026, "Marzo")],
+    )
+    assert cierres == [{"codigo": "26gmx7000.010", "anio": 2026, "mes": "Marzo", "origen": "ambas"}]
+    assert alertas == []
+
+
+def test_cruzar_cierres_par_solo_facturacion_cierra_con_alerta():
+    cierres, alertas = cruzar_cierres(
+        pares_facturacion=[("26gmx3000.001", 2026, "Abril")],
+        pares_notas_ds=[],
+    )
+    assert cierres[0]["origen"] == "facturacion"
+    assert any("solo" in a.lower() and "facturaci" in a.lower() for a in alertas)
+
+
+def test_cruzar_cierres_par_solo_notas_ds_cierra_con_alerta():
+    cierres, alertas = cruzar_cierres(
+        pares_facturacion=[],
+        pares_notas_ds=[("26gmx7000.010", 2026, "Marzo")],
+    )
+    assert cierres[0]["origen"] == "notas_ds"
+    assert any("solo" in a.lower() and "notas" in a.lower() for a in alertas)
 
 
 def test_extraer_codigo_limpio():
