@@ -7,6 +7,18 @@ from pipelines.summary.write import escribir_hoja_mes
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
+def _escribir(destino, filas, concentrado=None, mes_actual="Mayo"):
+    return escribir_hoja_mes(
+        ruta_origen=str(FIXTURES_DIR / "summary_abril.xlsm"),
+        ruta_destino=str(destino),
+        hoja_mes_anterior="2026_Abr",
+        hoja_mes_nuevo="2026_May",
+        filas=filas,
+        concentrado=concentrado if concentrado is not None else {},
+        mes_actual=mes_actual,
+    )
+
+
 def test_escribir_hoja_mes_no_toca_columna_a_del_kpi(tmp_path):
     destino = tmp_path / "summary_mayo.xlsm"
     filas = [
@@ -14,13 +26,7 @@ def test_escribir_hoja_mes_no_toca_columna_a_del_kpi(tmp_path):
          "MXN", 3000, 1, 3000, 0, 3000, 0, 0, 3000, "", ""],
     ]
 
-    escribir_hoja_mes(
-        ruta_origen=str(FIXTURES_DIR / "summary_abril.xlsm"),
-        ruta_destino=str(destino),
-        hoja_mes_anterior="2026_Abr",
-        hoja_mes_nuevo="2026_May",
-        filas=filas,
-    )
+    _escribir(destino, filas)
 
     wb = load_workbook(destino)
     nueva = wb["2026_May"]
@@ -42,13 +48,7 @@ def test_escribir_hoja_mes_actualiza_rango_de_formulas_kpi(tmp_path):
          "MXN", 2000, 1, 2000, "", 2000, "", "", 2000, "", ""],
     ]
 
-    escribir_hoja_mes(
-        ruta_origen=str(FIXTURES_DIR / "summary_abril.xlsm"),
-        ruta_destino=str(destino),
-        hoja_mes_anterior="2026_Abr",
-        hoja_mes_nuevo="2026_May",
-        filas=filas,
-    )
+    _escribir(destino, filas)
 
     wb = load_workbook(destino)
     nueva = wb["2026_May"]
@@ -71,13 +71,7 @@ def test_escribir_hoja_mes_actualiza_rango_de_formulas_kpi(tmp_path):
 def test_escribir_hoja_mes_sin_filas_usa_rango_seguro(tmp_path):
     destino = tmp_path / "summary_mayo.xlsm"
 
-    escribir_hoja_mes(
-        ruta_origen=str(FIXTURES_DIR / "summary_abril.xlsm"),
-        ruta_destino=str(destino),
-        hoja_mes_anterior="2026_Abr",
-        hoja_mes_nuevo="2026_May",
-        filas=[],
-    )
+    _escribir(destino, [])
 
     wb = load_workbook(destino)
     nueva = wb["2026_May"]
@@ -87,14 +81,45 @@ def test_escribir_hoja_mes_sin_filas_usa_rango_seguro(tmp_path):
 def test_escribir_hoja_mes_preserva_hoja_anterior(tmp_path):
     destino = tmp_path / "summary_mayo.xlsm"
 
-    escribir_hoja_mes(
-        ruta_origen=str(FIXTURES_DIR / "summary_abril.xlsm"),
-        ruta_destino=str(destino),
-        hoja_mes_anterior="2026_Abr",
-        hoja_mes_nuevo="2026_May",
-        filas=[],
-    )
+    _escribir(destino, [])
 
     wb = load_workbook(destino)
     abril = wb["2026_Abr"]
     assert abril.cell(row=13, column=8).value == "26gmx3000.001"
+
+
+def _fila(cierre, cc, periodo, monto, proyecto="26gmx3000.001"):
+    return ["", cierre, 2026, periodo, cc, "Cli", "Nom", proyecto, "MXN",
+            monto, 1, monto, "", "", "", "", "", "", ""]
+
+
+def test_write_puebla_kpi_filas_3_y_5_desde_concentrado(tmp_path):
+    concentrado = {3000: {"facturado": 6050968.44, "canceladas": 552468.62},
+                   2000: {"facturado": 1784778.64, "canceladas": 0},
+                   7000: {"facturado": 5871693.18, "canceladas": 298668.65}}
+    destino = tmp_path / "out.xlsm"
+    _escribir(destino, [_fila("Provision", 3000, "Mayo", 1000)], concentrado=concentrado)
+    ws = load_workbook(destino, data_only=False, keep_vba=True)["2026_May"]
+    assert ws.cell(row=3, column=9).value == 6050968.44
+    assert ws.cell(row=5, column=9).value == 552468.62
+    assert ws.cell(row=3, column=11).value == 5871693.18
+
+
+def test_write_concentrado_ausente_deja_blanco_y_alerta(tmp_path):
+    destino = tmp_path / "out.xlsm"
+    alertas = _escribir(destino, [_fila("Provision", 3000, "Mayo", 1000)], concentrado={})
+    ws = load_workbook(destino, data_only=False, keep_vba=True)["2026_May"]
+    assert ws.cell(row=3, column=9).value is None
+    assert any("Concentrado" in a for a in alertas)
+
+
+def test_write_fila_11_suma_provisiones_periodo_anterior_por_unidad(tmp_path):
+    filas = [
+        _fila("Provision", 3000, "Marzo", 100),
+        _fila("Provision", 3000, "Mayo", 500),
+        _fila("Cancelar", 3000, "Marzo", 999),
+    ]
+    destino = tmp_path / "out.xlsm"
+    _escribir(destino, filas, mes_actual="Mayo")
+    ws = load_workbook(destino, data_only=False, keep_vba=True)["2026_May"]
+    assert ws.cell(row=11, column=9).value == 100

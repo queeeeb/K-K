@@ -14,6 +14,9 @@ def _limpiar_seccion_b(sheet) -> None:
             cell.value = None
 
 
+_COL_KPI_POR_UNIDAD = {3000: 9, 2000: 10, 7000: 11}
+
+
 def _actualizar_formulas_kpi(sheet, ultima_fila: int) -> None:
     for col, cc in ((9, 3000), (10, 2000), (11, 7000)):
         sheet.cell(row=2, column=col, value=(
@@ -24,13 +27,41 @@ def _actualizar_formulas_kpi(sheet, ultima_fila: int) -> None:
         ))
 
 
+def _poblar_facturacion_kpi(sheet, concentrado: dict) -> list[str]:
+    if not concentrado:
+        for col in _COL_KPI_POR_UNIDAD.values():
+            sheet.cell(row=3, column=col, value=None)
+            sheet.cell(row=5, column=col, value=None)
+        return ["Hoja Concentrado ausente en Facturación — filas 3 y 5 del KPI quedaron en blanco."]
+    for unidad, col in _COL_KPI_POR_UNIDAD.items():
+        datos = concentrado.get(unidad, {})
+        sheet.cell(row=3, column=col, value=datos.get("facturado"))
+        sheet.cell(row=5, column=col, value=datos.get("canceladas"))
+    return []
+
+
+def _poblar_antiguas_por_facturar(sheet, filas: list[list], mes_actual: str) -> None:
+    suma = {3000: 0.0, 2000: 0.0, 7000: 0.0}
+    for fila in filas:
+        cierre = fila[1].strip() if isinstance(fila[1], str) else ""
+        periodo = fila[3].strip() if isinstance(fila[3], str) else ""
+        unidad, monto = fila[4], fila[11]
+        if cierre.startswith("Provision") and periodo != mes_actual and unidad in suma:
+            if isinstance(monto, (int, float)):
+                suma[unidad] += monto
+    for unidad, col in _COL_KPI_POR_UNIDAD.items():
+        sheet.cell(row=11, column=col, value=suma[unidad] or 0)
+
+
 def escribir_hoja_mes(
     ruta_origen: str,
     ruta_destino: str,
     hoja_mes_anterior: str,
     hoja_mes_nuevo: str,
     filas: list[list],
-) -> None:
+    concentrado: dict,
+    mes_actual: str,
+) -> list[str]:
     wb = load_workbook(ruta_origen, keep_vba=ruta_origen.endswith(".xlsm"))
     nueva = _duplicate_sheet(wb, hoja_mes_anterior, hoja_mes_nuevo)
     _limpiar_seccion_b(nueva)
@@ -49,5 +80,8 @@ def escribir_hoja_mes(
 
     ultima_fila = 12 + len(filas) if filas else 13
     _actualizar_formulas_kpi(nueva, ultima_fila)
+    alertas = _poblar_facturacion_kpi(nueva, concentrado)
+    _poblar_antiguas_por_facturar(nueva, filas, mes_actual)
 
     wb.save(ruta_destino)
+    return alertas
