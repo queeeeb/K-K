@@ -1,10 +1,31 @@
+from datetime import datetime
+
 from pipelines.summary.extract_fuentes import (
     _cc_desde_codigo,
     extraer_consulting,
     extraer_ds,
     extraer_engineering,
     extraer_facturacion,
+    pares_cierre_facturacion,
 )
+
+
+def test_pares_cierre_facturacion_extrae_codigo_y_periodo():
+    rows = [
+        ["Proyecto", "Estado", "Periodo"],
+        ["26gmx3000.007-P3 USA- Borgwarner", "Sin pagar", datetime(2026, 4, 30)],
+    ]
+    estructura = {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2}
+    assert pares_cierre_facturacion(rows, estructura) == [("26gmx3000.007", 2026, "Abril")]
+
+
+def test_pares_cierre_facturacion_ignora_cancelado():
+    rows = [
+        ["Proyecto", "Estado", "Periodo"],
+        ["26gmx3000.007-P3 USA", "Cancelado", datetime(2026, 4, 30)],
+    ]
+    estructura = {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2}
+    assert pares_cierre_facturacion(rows, estructura) == []
 
 
 def test_cc_desde_codigo_acepta_los_3_segmentos_de_p3():

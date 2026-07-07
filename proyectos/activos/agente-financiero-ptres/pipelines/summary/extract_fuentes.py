@@ -1,7 +1,11 @@
 import re
 
+from pipelines.summary.calculate import extraer_codigo
+from pipelines.summary.periodos import normalizar_periodo
+
 
 _SEGMENTOS_VALIDOS = {2000, 3000, 7000}
+_ESTADOS_FACTURADO = {"Sin pagar", "Pagado"}
 _STATUS_CONSULTING_ACTIVOS = {"PROVISION", "FACTURADO"}
 
 
@@ -116,3 +120,19 @@ def extraer_facturacion(rows: list[list], estructura: dict) -> list[dict]:
         for row in rows[1:]
         if row[proyecto_col]
     ]
+
+
+def pares_cierre_facturacion(rows: list[list], estructura: dict) -> list[tuple[str, int, str]]:
+    proyecto_col = estructura["proyecto_columna"]
+    estado_col = estructura["estado_columna"]
+    periodo_col = estructura["periodo_columna"]
+    pares = []
+    for row in rows[1:]:
+        if not row[proyecto_col] or _texto(row[estado_col]) not in _ESTADOS_FACTURADO:
+            continue
+        periodo = normalizar_periodo(row[periodo_col])
+        if periodo is None:
+            continue
+        codigo = extraer_codigo(row[proyecto_col], formato="guion")
+        pares.append((codigo, periodo[0], periodo[1]))
+    return pares
