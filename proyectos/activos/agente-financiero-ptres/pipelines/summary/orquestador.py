@@ -2,12 +2,18 @@ import re
 
 from openpyxl import load_workbook
 
-from pipelines.summary.extract import leer_provisiones_mes_anterior, leer_tipos_cambio
+from pipelines.summary.calculate import cruzar_cierres
+from pipelines.summary.concentrado import leer_concentrado
+from pipelines.summary.extract import (
+    leer_notas_num_factura_ds,
+    leer_provisiones_mes_anterior,
+    leer_tipos_cambio,
+)
 from pipelines.summary.extract_fuentes import (
     extraer_consulting,
     extraer_ds,
     extraer_engineering,
-    extraer_facturacion,
+    pares_cierre_facturacion,
 )
 from pipelines.summary.historial import todos_los_codigos_conocidos
 from pipelines.summary.interpret import (
@@ -15,6 +21,7 @@ from pipelines.summary.interpret import (
     interpret_ds,
     interpret_engineering,
     interpret_facturacion,
+    interpret_notas_ds,
 )
 
 
@@ -80,17 +87,25 @@ def interpretar_summary(raw_files: dict[str, str], client, mes: str | None = Non
     hojas = wb_base.sheetnames
     hoja_mes_anterior = hojas[-1]
 
-    provisiones_mes_anterior = leer_provisiones_mes_anterior(wb_base, hoja_mes_anterior)
+    anio_contexto = int(mes.split("-")[0]) if mes else None
+    ledger_vivo = leer_provisiones_mes_anterior(wb_base, hoja_mes_anterior)
     codigos_conocidos = todos_los_codigos_conocidos(wb_base, hojas)
     tipos_cambio = leer_tipos_cambio(wb_base, hoja_mes_anterior)
 
     rows_facturacion = _cargar_rows(raw_files["facturacion"], hoja="Detalle")
     estructura_facturacion = interpret_facturacion(rows_facturacion, client)
-    facturas_mes = extraer_facturacion(rows_facturacion, estructura_facturacion)
+    pares_fact = pares_cierre_facturacion(rows_facturacion, estructura_facturacion)
 
     rows_ds = _cargar_rows(raw_files["ds"], hoja="2026")
     estructura_ds = interpret_ds(rows_ds, client, mes_numero=mes_numero)
     ds_actuales = extraer_ds(rows_ds, estructura_ds)
+    notas_ds = leer_notas_num_factura_ds(
+        raw_files["ds"],
+        num_factura_col=estructura_ds["provision_columna"] + 1,
+        codigo_col=estructura_ds["codigo_columna"],
+        fila_inicio=estructura_ds["fila_inicio_datos"],
+    )
+    pares_notas = interpret_notas_ds(notas_ds, client, anio_contexto=anio_contexto)
 
     rows_engineering = _cargar_rows(raw_files["engineering"], hoja="Hoja1")
     estructura_engineering = interpret_engineering(rows_engineering, client, mes_numero=mes_numero)
@@ -100,16 +115,20 @@ def interpretar_summary(raw_files: dict[str, str], client, mes: str | None = Non
     estructura_consulting = interpret_consulting(rows_consulting, client)
     consulting_actuales = extraer_consulting(rows_consulting, estructura_consulting)
 
+    cierres, alertas_cierre = cruzar_cierres(pares_fact, pares_notas)
+    concentrado = leer_concentrado(raw_files["facturacion"])
+
     provisiones_convertidas, alertas_conversion = _convertir_a_mxn(
         ds_actuales + engineering_actuales + consulting_actuales, tipos_cambio
     )
     provisiones_actuales, alertas_sospechosos = _separar_sospechosos(provisiones_convertidas)
-    alertas = alertas_conversion + alertas_sospechosos
+    alertas = alertas_conversion + alertas_sospechosos + alertas_cierre
 
     return {
-        "provisiones_mes_anterior": provisiones_mes_anterior,
-        "facturas_mes": facturas_mes,
+        "ledger_vivo": ledger_vivo,
+        "cierres": cierres,
         "provisiones_actuales": provisiones_actuales,
+        "concentrado": concentrado,
         "codigos_conocidos": codigos_conocidos,
         "alertas": alertas,
         "ruta_base": raw_files["base"],

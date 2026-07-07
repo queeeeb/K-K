@@ -28,7 +28,7 @@ def test_interpretar_summary_combina_las_4_fuentes():
     }
     # orden de llamadas: facturacion, ds, engineering, consulting
     client = _fake_client_con_respuestas([
-        {"proyecto_columna": 0, "estado_columna": 1},
+        {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2},
         {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
         {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
         {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3},
@@ -36,7 +36,7 @@ def test_interpretar_summary_combina_las_4_fuentes():
 
     resultado = interpretar_summary(raw_files, client, mes="2026-05")
 
-    assert resultado["provisiones_mes_anterior"] == [
+    assert resultado["ledger_vivo"] == [
         {"proyecto": "26gmx3000.001", "monto_mxn": 17950, "cc": 3000, "cliente": "Cliente Uno",
          "nombre_proyecto": "Proyecto Uno", "moneda": "USD", "monto_original": 1000, "tc": 17.95,
          "anio": 2026, "periodo": "Abril"},
@@ -47,10 +47,12 @@ def test_interpretar_summary_combina_las_4_fuentes():
     assert resultado["ruta_base"] == raw_files["base"]
     assert resultado["hoja_mes_anterior"] == "2026_Abr"
     assert resultado["hoja_mes_nuevo"] == "2026_May"
-    assert resultado["facturas_mes"] == [
-        {"proyecto": "26gmx3000.001-Cliente Uno- Proyecto Uno", "estado": "Pagado"},
-        {"proyecto": "26gmx7000.099-Cliente Tres- Proyecto Tres", "estado": "Sin pagar"},
+
+    # solo la factura Pagado genera cierre (la Cancelado se ignora), por periodo Abril
+    assert resultado["cierres"] == [
+        {"codigo": "26gmx3000.001", "anio": 2026, "mes": "Abril", "origen": "facturacion"},
     ]
+    assert resultado["concentrado"][3000] == {"facturado": 1000, "canceladas": 100}
 
     proyectos_actuales = {p["proyecto"] for p in resultado["provisiones_actuales"]}
     assert proyectos_actuales == {"26gmx7000.002", "26gmx2000.005", "26gmx3000.001"}
@@ -100,7 +102,7 @@ def test_interpretar_summary_reporta_alertas_de_codigos_sospechosos():
         "consulting": str(FIXTURES_DIR / "overview_consulting_mayo.xlsx"),
     }
     client = _fake_client_con_respuestas([
-        {"proyecto_columna": 0, "estado_columna": 1},
+        {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2},
         {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
         {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
         {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3},
@@ -108,6 +110,6 @@ def test_interpretar_summary_reporta_alertas_de_codigos_sospechosos():
 
     resultado = interpretar_summary(raw_files, client, mes="2026-05")
 
-    assert resultado["alertas"] == []
+    assert not any("sospechoso" in a.lower() for a in resultado["alertas"])
     proyectos = {p["proyecto"] for p in resultado["provisiones_actuales"]}
     assert "26gmx7000.002" in proyectos

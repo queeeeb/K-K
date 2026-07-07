@@ -1,6 +1,7 @@
 """Generates synthetic .xlsx/.xlsm fixtures with the real column layout but invented data.
 Run with: uv run python pipelines/summary/tests/fixtures/make_fixtures.py
 """
+from datetime import datetime
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -39,14 +40,17 @@ def make_facturacion_mayo() -> None:
     wb = Workbook()
     detalle = wb.active
     detalle.title = "Detalle"
-    detalle.append(["Proyecto", "Estado", "Monto"])
-    detalle.append(["26gmx3000.001-Cliente Uno- Proyecto Uno", "Pagado", 1000])
-    detalle.append(["26gmx7000.099-Cliente Tres- Proyecto Tres", "Sin pagar", 2000])
+    detalle.append(["Proyecto", "Estado", "Periodo", "Monto"])
+    detalle.append(["26gmx3000.001-Cliente Uno- Proyecto Uno", "Pagado", datetime(2026, 4, 30), 1000])
+    detalle.append(["26gmx7000.099-Cliente Tres- Proyecto Tres", "Cancelado", datetime(2026, 4, 30), 2000])
 
     concentrado = wb.create_sheet("Concentrado")
-    concentrado.append(["Segmento", "Total"])
-    concentrado.append(["CONSULTING", 1000])
-    concentrado.append(["DS", 2000])
+    concentrado["A2"], concentrado["B2"] = "CONSULTING", 1000
+    concentrado["A3"], concentrado["B3"] = "CANCELADAS", 100
+    concentrado["D2"], concentrado["E2"] = "DIGITAL SERVICES", 2000
+    concentrado["D3"], concentrado["E3"] = "CANCELADAS", 0
+    concentrado["G2"], concentrado["H2"] = "ENGINEERING", 300
+    concentrado["G3"], concentrado["H3"] = "CANCELADAS", 0
 
     wb.save(FIXTURES_DIR / "facturacion_mayo.xlsx")
 
