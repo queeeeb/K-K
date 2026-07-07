@@ -161,8 +161,10 @@ def interpret_facturacion(rows: list[list], anthropic_client) -> dict:
     filas = _enmascarar_montos(rows[:_MAX_FILAS_PROMPT])
     prompt = (
         "Esta es la hoja Detalle de Facturación. El código de proyecto viene con guión "
-        "(código-cliente-descripción). Identifica la columna de proyecto y la columna de estado "
-        "de la factura. Responde solo JSON con las llaves: proyecto_columna, estado_columna. "
+        "(código-cliente-descripción). Identifica la columna de proyecto, la columna de estado "
+        "de la factura, y la columna 'Periodo' — el mes de provisión que la factura cubre (es una "
+        "fecha; NO la columna 'Fecha de factura' del timbrado). Responde solo JSON con las llaves: "
+        "proyecto_columna, estado_columna, periodo_columna. "
         f"{_INSTRUCCION_INDICE}\n\n"
         f"Filas: {filas}"
     )

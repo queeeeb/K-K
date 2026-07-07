@@ -5,8 +5,20 @@ from pipelines.summary.interpret import (
     _enmascarar_montos,
     interpret_ds,
     interpret_engineering,
+    interpret_facturacion,
     interpret_notas_ds,
 )
+
+
+def test_interpret_facturacion_pide_columna_periodo():
+    cliente = _fake_client({"proyecto_columna": 7, "estado_columna": 17, "periodo_columna": 4})
+    rows = [["Numero", "Entidad", "x", "Fecha", "Periodo", "Provision", "y", "Proyecto"]]
+
+    resultado = interpret_facturacion(rows, cliente)
+
+    prompt = cliente.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert "periodo_columna" in prompt
+    assert resultado["periodo_columna"] == 4
 
 
 def test_interpret_notas_ds_devuelve_pares_por_mes():
