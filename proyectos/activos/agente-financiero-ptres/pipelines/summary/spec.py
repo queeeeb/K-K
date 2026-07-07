@@ -21,22 +21,22 @@ def build_summary_spec(
         hoja_mes_nuevo_actual = estructura.get("hoja_mes_nuevo") or hoja_mes_nuevo
         hoja_mes_anterior_actual = estructura.get("hoja_mes_anterior") or hoja_mes_anterior
         ruta_origen_actual = estructura.get("ruta_base") or ruta_origen
+        anio_actual, mes_actual = hoja_mes_nuevo_actual.split("_", 1)
 
         resultado = reconciliar(
-            provisiones_mes_anterior=estructura["provisiones_mes_anterior"],
-            facturas_mes=estructura["facturas_mes"],
+            ledger_vivo=estructura["ledger_vivo"],
+            cierres=estructura.get("cierres", []),
             provisiones_actuales=estructura["provisiones_actuales"],
             alertas=estructura.get("alertas", []),
             codigos_conocidos=estructura.get("codigos_conocidos"),
         )
-        anio_actual, periodo_actual = hoja_mes_nuevo_actual.split("_", 1)
 
         def _fila(p: dict, cierre: str) -> list:
             moneda = p.get("moneda", "MXN")
             monto_original = p.get("monto_original", p["monto_mxn"])
             tc = p.get("tc", 1)
             anio = p.get("anio") or int(anio_actual)
-            periodo = p.get("periodo") or periodo_actual
+            periodo = p.get("periodo") or mes_actual
             cancelada = cierre == "Cancelar"
             usd = monto_original if cancelada and moneda == "USD" else ""
             mxn = p["monto_mxn"] if cancelada and moneda == "MXN" else ""
@@ -50,39 +50,45 @@ def build_summary_spec(
             ]
 
         filas = (
-            [_fila(p, "Provision") for p in resultado["activas"] + resultado["nuevas"]]
-            + [_fila(p, "Cancelar") for p in resultado["canceladas"]]
+            [_fila(p, "Provision") for p in resultado["mantenidas"]]
+            + [_fila(p, "Cancelar") for p in resultado["cerradas"]]
+            + [_fila(p, "Provision") for p in resultado["nuevas"]]
         )
-        counts = {
-            "canceladas": len(resultado["canceladas"]),
-            "activas": len(resultado["activas"]),
-            "nuevas": len(resultado["nuevas"]),
-        }
+        resultado["cierres"] = estructura.get("cierres", [])
         detalle = {
             "filas": filas,
-            "counts": counts,
+            "counts": {
+                "mantenidas": len(resultado["mantenidas"]),
+                "cerradas": len(resultado["cerradas"]),
+                "nuevas": len(resultado["nuevas"]),
+            },
             "ruta_origen": ruta_origen_actual,
             "hoja_mes_anterior": hoja_mes_anterior_actual,
             "hoja_mes_nuevo": hoja_mes_nuevo_actual,
+            "concentrado": estructura.get("concentrado", {}),
+            "mes_actual": mes_actual,
         }
         return {"resumen": resultado, "detalle": detalle}
 
     def write(detalle: dict, archivo_destino) -> dict:
         destino = archivo_destino or ruta_destino
-        escribir_hoja_mes(
+        alertas_kpi = escribir_hoja_mes(
             ruta_origen=detalle["ruta_origen"],
             ruta_destino=destino,
             hoja_mes_anterior=detalle["hoja_mes_anterior"],
             hoja_mes_nuevo=detalle["hoja_mes_nuevo"],
             filas=detalle["filas"],
+            concentrado=detalle["concentrado"],
+            mes_actual=detalle["mes_actual"],
         )
         counts = detalle["counts"]
         return {
             "archivo": destino,
-            "filas_escritas": counts["activas"] + counts["nuevas"] + counts["canceladas"],
-            "canceladas": counts["canceladas"],
-            "activas": counts["activas"],
+            "filas_escritas": counts["mantenidas"] + counts["cerradas"] + counts["nuevas"],
+            "mantenidas": counts["mantenidas"],
+            "cerradas": counts["cerradas"],
             "nuevas": counts["nuevas"],
+            "alertas_kpi": alertas_kpi,
         }
 
     return PipelineSpec(
