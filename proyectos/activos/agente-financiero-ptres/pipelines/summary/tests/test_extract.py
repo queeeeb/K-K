@@ -1,6 +1,28 @@
 from openpyxl import Workbook
+from openpyxl.comments import Comment
 
-from pipelines.summary.extract import leer_provisiones_mes_anterior, leer_tipos_cambio
+from pipelines.summary.extract import (
+    leer_notas_num_factura_ds,
+    leer_provisiones_mes_anterior,
+    leer_tipos_cambio,
+)
+
+
+def test_leer_notas_num_factura_ds(tmp_path):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "2026"
+    ws.cell(row=6, column=4, value="26gmx7000.010")
+    celda = ws.cell(row=6, column=8, value="DS-2026-020")
+    celda.comment = Comment("ENE26 100\nFEB26 200", "Estela")
+    ws.cell(row=7, column=4, value="26gmx7000.011")
+    ws.cell(row=7, column=8, value="DS-2026-021")
+    ruta = tmp_path / "ds.xlsx"
+    wb.save(ruta)
+
+    resultado = leer_notas_num_factura_ds(str(ruta), num_factura_col=7, codigo_col=3, fila_inicio=5)
+
+    assert resultado == [{"codigo": "26gmx7000.010", "nota": "ENE26 100\nFEB26 200"}]
 
 HEADERS = ["Cotizacion", "Cierre", "Año", "Periodo", "CC", "Cliente", "Nombre Proyecto",
            "Proyecto", "Moneda", "Provision", "T/C Provision", "PROVISION MXN", "usd",

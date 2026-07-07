@@ -1,3 +1,22 @@
+from openpyxl import load_workbook
+
+
+def leer_notas_num_factura_ds(
+    ruta: str, num_factura_col: int, codigo_col: int, fila_inicio: int
+) -> list[dict]:
+    wb = load_workbook(ruta)
+    sheet = wb["2026"] if "2026" in wb.sheetnames else wb[wb.sheetnames[0]]
+    resultado = []
+    for row in range(fila_inicio + 1, sheet.max_row + 1):
+        celda = sheet.cell(row=row, column=num_factura_col + 1)
+        if celda.comment is None:
+            continue
+        codigo = sheet.cell(row=row, column=codigo_col + 1).value
+        if isinstance(codigo, str) and codigo.strip():
+            resultado.append({"codigo": codigo.strip(), "nota": celda.comment.text.strip()})
+    return resultado
+
+
 def leer_provisiones_mes_anterior(wb, hoja: str) -> list[dict]:
     sheet = wb[hoja]
     provisiones = []

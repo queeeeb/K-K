@@ -1,7 +1,25 @@
 import json
 from unittest.mock import MagicMock
 
-from pipelines.summary.interpret import _enmascarar_montos, interpret_ds, interpret_engineering
+from pipelines.summary.interpret import (
+    _enmascarar_montos,
+    interpret_ds,
+    interpret_engineering,
+    interpret_notas_ds,
+)
+
+
+def test_interpret_notas_ds_devuelve_pares_por_mes():
+    cliente = _fake_client([{"codigo": "26gmx7000.010", "meses": ["ENE26", "FEB26"]}])
+    notas = [{"codigo": "26gmx7000.010", "nota": "ENE26 100\nFEB26 200"}]
+    resultado = interpret_notas_ds(notas, cliente, anio_contexto=2026)
+    assert ("26gmx7000.010", 2026, "Enero") in resultado
+    assert ("26gmx7000.010", 2026, "Febrero") in resultado
+
+
+def test_interpret_notas_ds_vacio_sin_llamar_claude():
+    resultado = interpret_notas_ds([], _fake_client([]), anio_contexto=2026)
+    assert resultado == []
 
 
 def _fake_client(json_response: dict):

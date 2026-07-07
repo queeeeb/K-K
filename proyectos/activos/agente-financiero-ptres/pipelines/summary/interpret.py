@@ -1,5 +1,7 @@
 import json
 
+from pipelines.summary.periodos import normalizar_periodo
+
 _MAX_FILAS_PROMPT = 15
 _TIMEOUT_SEGUNDOS = 30
 _INSTRUCCION_INDICE = (
@@ -122,6 +124,37 @@ def interpret_consulting(rows: list[list], anthropic_client) -> dict:
         f"Filas: {filas}"
     )
     return _ask_claude_for_structure(anthropic_client, prompt)
+
+
+def interpret_notas_ds(notas, anthropic_client, anio_contexto: int):
+    if not notas:
+        return []
+    prompt = (
+        "Cada objeto tiene un 'codigo' de proyecto y una 'nota' de captura manual que indica a qué "
+        "mes(es) de provisión corresponde una factura. La nota trae abreviaturas inconsistentes "
+        "(ej. 'ENE26', 'feb26', 'DIC25', 'ago') y a veces montos o texto libre que debes ignorar. "
+        "Para cada objeto devuelve el código y la lista de meses cubiertos, cada mes como cadena "
+        "corta tipo 'ENE26' (mes de 3 letras + año de 2 dígitos si la nota lo indica). Si la nota no "
+        "indica ningún mes claro, devuelve lista vacía para ese código. Responde ÚNICAMENTE un JSON "
+        "array de objetos {codigo, meses}, sin explicación.\n\n"
+        f"Notas: {notas}"
+    )
+    message = anthropic_client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=2048,
+        timeout=_TIMEOUT_SEGUNDOS,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    texto = message.content[0].text.strip()
+    inicio, fin = texto.find("["), texto.rfind("]")
+    datos = json.loads(texto[inicio:fin + 1]) if inicio != -1 else []
+    pares = []
+    for obj in datos:
+        for mes_txt in obj.get("meses", []):
+            normalizado = normalizar_periodo(mes_txt, anio_contexto=anio_contexto)
+            if normalizado is not None:
+                pares.append((obj["codigo"], normalizado[0], normalizado[1]))
+    return pares
 
 
 def interpret_facturacion(rows: list[list], anthropic_client) -> dict:
