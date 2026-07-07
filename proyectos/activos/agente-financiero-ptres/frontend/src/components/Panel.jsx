@@ -42,7 +42,7 @@ function BannerPendientes({ items, onRetomar, onCancelar }) {
   )
 }
 
-export default function Panel({ pact, mes, setMes, MESES, lockedBy, pendientesItems, onProcesar, onRetomar, onCancelarPendiente, archivos = {}, setArchivo }) {
+export default function Panel({ pact, mes, setMes, MESES, lockedBy, pendientesItems, onProcesar, onRetomar, onCancelarPendiente, archivos = {}, setArchivo, tc = {}, setTcMoneda }) {
   const Icon = pact.icon
   const slots = slotsDe(pact.id)
   const faltan = Object.keys(slots).filter(s => !archivos[s])
@@ -111,6 +111,25 @@ export default function Panel({ pact, mes, setMes, MESES, lockedBy, pendientesIt
                     onChange={e => setArchivo(slot, e.target.files[0])} />
                   <span className={`h-2 w-2 shrink-0 rounded-full ${archivos[slot] ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                   <span className="min-w-0 flex-1 truncate text-slate-600">{archivos[slot]?.name ?? etiqueta}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {pact.id === 'summary' && (
+          <div className="border-t border-slate-100 px-5 py-4">
+            <p className="mb-1 text-sm font-medium text-slate-700">Tipo de cambio del mes</p>
+            <p className="mb-2.5 text-xs text-slate-500">Se usa para convertir las provisiones nuevas en moneda extranjera. Si lo dejas vacío, se toma el del tablero del mes anterior.</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {['USD', 'EUR', 'CAD'].map(moneda => (
+                <label key={moneda} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                  <span className="w-9 shrink-0 font-semibold text-slate-600">{moneda}</span>
+                  <input type="number" step="0.0001" min="0" inputMode="decimal"
+                    placeholder="—"
+                    value={tc[moneda] ?? ''}
+                    onChange={e => setTcMoneda(moneda, e.target.value)}
+                    className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-right font-num tabular-nums text-slate-900 outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/10" />
                 </label>
               ))}
             </div>

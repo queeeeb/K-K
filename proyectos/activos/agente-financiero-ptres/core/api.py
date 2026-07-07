@@ -131,6 +131,15 @@ async def procesar(pipeline: str, request: Request, usuario_autenticado: str = D
     if not mes:
         raise HTTPException(status_code=400, detail="Falta el campo 'mes'")
 
+    tc = {}
+    for moneda, campo in (("USD", "tc_usd"), ("EUR", "tc_eur"), ("CAD", "tc_cad")):
+        valor = form.get(campo)
+        if valor:
+            try:
+                tc[moneda] = float(valor)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Tipo de cambio inválido en {campo}")
+
     subidas = {k: v for k, v in form.items() if hasattr(v, "filename")}
     nombres = {slot: f.filename for slot, f in subidas.items()}
     try:
@@ -154,7 +163,7 @@ async def procesar(pipeline: str, request: Request, usuario_autenticado: str = D
     try:
         # raw_files = {slot: ruta del archivo subido} + '_mes' (mes objetivo del proceso).
         # El interpret de cada pipeline lee de ahí; los que no necesitan '_mes' lo ignoran.
-        estructura = spec.interpret({**rutas, "_mes": mes})
+        estructura = spec.interpret({**rutas, "_mes": mes, "_tc": tc})
         plan = spec.calculate(estructura, estado_anterior=None)
 
         conn.execute(

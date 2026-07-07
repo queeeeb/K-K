@@ -50,7 +50,10 @@ def _build_interpret_summary():
         ]
         if faltantes:
             raise RuntimeError(f"Faltan archivos subidos para Summary: {', '.join(faltantes)}")
-        return interpretar_summary(raw_files, client, mes=raw_files.get("_mes"))
+        return interpretar_summary(
+            raw_files, client, mes=raw_files.get("_mes"),
+            tipos_cambio_override=raw_files.get("_tc"),
+        )
 
     return interpret
 

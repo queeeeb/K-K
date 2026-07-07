@@ -41,6 +41,8 @@ export default function App() {
   const [pendientesItems, setPendientesItems] = useState([])
   const [archivos, setArchivos] = useState({})
   function setArchivo(slot, file) { setArchivos(a => ({ ...a, [slot]: file })) }
+  const [tc, setTc] = useState({})
+  function setTcMoneda(moneda, valor) { setTc(t => ({ ...t, [moneda]: valor })) }
 
   const pact = PIPELINES.find(p => p.id === pipeline)
 
@@ -58,7 +60,7 @@ export default function App() {
     setScreen('login')
   }
 
-  const sharedProps = { usuario, pipeline, setPipeline, mes, setMes, plan, planToken: plan?.token, reporte, pact, MESES, lockedBy, errorMsg, pendientesItems, archivos, setArchivo }
+  const sharedProps = { usuario, pipeline, setPipeline, mes, setMes, plan, planToken: plan?.token, reporte, pact, MESES, lockedBy, errorMsg, pendientesItems, archivos, setArchivo, tc, setTcMoneda }
 
   if (screen === 'login') {
     return <Login onSuccess={(u) => { setUsuario(u); setScreen('panel') }} />
@@ -98,9 +100,10 @@ export default function App() {
                 onProcesar={async () => {
                   setScreen('processing')
                   try {
-                    const data = await api.procesar(pipeline, mes, archivos)
+                    const data = await api.procesar(pipeline, mes, archivos, tc)
                     setPlan(data)
                     setArchivos({})
+                    setTc({})
                     setScreen('summary')
                   } catch (err) {
                     if (err.locked) {

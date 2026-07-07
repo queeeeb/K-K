@@ -80,7 +80,10 @@ def _separar_sospechosos(provisiones: list[dict]) -> tuple[list[dict], list[str]
     return validas, alertas
 
 
-def interpretar_summary(raw_files: dict[str, str], client, mes: str | None = None) -> dict:
+def interpretar_summary(
+    raw_files: dict[str, str], client, mes: str | None = None,
+    tipos_cambio_override: dict | None = None,
+) -> dict:
     mes_numero = int(mes.split("-")[1]) if mes else None
 
     wb_base = load_workbook(raw_files["base"], data_only=True, keep_vba=True)
@@ -91,6 +94,8 @@ def interpretar_summary(raw_files: dict[str, str], client, mes: str | None = Non
     ledger_vivo = leer_provisiones_mes_anterior(wb_base, hoja_mes_anterior)
     codigos_conocidos = todos_los_codigos_conocidos(wb_base, hojas)
     tipos_cambio = leer_tipos_cambio(wb_base, hoja_mes_anterior)
+    if tipos_cambio_override:
+        tipos_cambio = {**tipos_cambio, **tipos_cambio_override}
 
     rows_facturacion = _cargar_rows(raw_files["facturacion"], hoja="Detalle")
     estructura_facturacion = interpret_facturacion(rows_facturacion, client)
@@ -129,6 +134,7 @@ def interpretar_summary(raw_files: dict[str, str], client, mes: str | None = Non
         "cierres": cierres,
         "provisiones_actuales": provisiones_actuales,
         "concentrado": concentrado,
+        "tipos_cambio": tipos_cambio,
         "codigos_conocidos": codigos_conocidos,
         "alertas": alertas,
         "ruta_base": raw_files["base"],

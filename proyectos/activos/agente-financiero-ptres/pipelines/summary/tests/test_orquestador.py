@@ -61,6 +61,26 @@ def test_interpretar_summary_combina_las_4_fuentes():
     assert "26gmx7000.002" in resultado["codigos_conocidos"]
 
 
+def test_interpretar_summary_tc_override_gana_sobre_tablero():
+    raw_files = {
+        "base": str(FIXTURES_DIR / "summary_abril.xlsm"),
+        "facturacion": str(FIXTURES_DIR / "facturacion_mayo.xlsx"),
+        "ds": str(FIXTURES_DIR / "provisiones_ds_mayo.xlsx"),
+        "engineering": str(FIXTURES_DIR / "provisiones_engineering_mayo.xlsx"),
+        "consulting": str(FIXTURES_DIR / "overview_consulting_mayo.xlsx"),
+    }
+    client = _fake_client_con_respuestas([
+        {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2},
+        {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
+        {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
+        {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3, "moneda_columna": 4},
+    ])
+
+    resultado = interpretar_summary(raw_files, client, mes="2026-05", tipos_cambio_override={"USD": 18.5})
+
+    assert resultado["tipos_cambio"]["USD"] == 18.5
+
+
 def test_separar_sospechosos_acepta_consecutivo_odoo_con_o_sin_espacio():
     from pipelines.summary.orquestador import _separar_sospechosos
 

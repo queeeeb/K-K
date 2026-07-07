@@ -46,11 +46,15 @@ async function login(usuario, password) {
   return data
 }
 
-async function procesar(pipeline, mes, archivos = {}) {
+async function procesar(pipeline, mes, archivos = {}, tc = {}) {
   const fd = new FormData()
   fd.append('mes', mes)
   for (const [slot, file] of Object.entries(archivos)) {
     if (file) fd.append(slot, file)
+  }
+  const campoTc = { USD: 'tc_usd', EUR: 'tc_eur', CAD: 'tc_cad' }
+  for (const [moneda, campo] of Object.entries(campoTc)) {
+    if (tc[moneda] != null && tc[moneda] !== '') fd.append(campo, tc[moneda])
   }
   const headers = {}
   if (_token) headers['Authorization'] = `Bearer ${_token}`

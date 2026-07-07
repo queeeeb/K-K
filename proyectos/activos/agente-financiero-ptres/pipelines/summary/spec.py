@@ -67,6 +67,7 @@ def build_summary_spec(
             "hoja_mes_nuevo": hoja_mes_nuevo_actual,
             "concentrado": estructura.get("concentrado", {}),
             "mes_actual": mes_actual,
+            "tipos_cambio": estructura.get("tipos_cambio", {}),
         }
         return {"resumen": resultado, "detalle": detalle}
 
@@ -80,6 +81,7 @@ def build_summary_spec(
             filas=detalle["filas"],
             concentrado=detalle["concentrado"],
             mes_actual=detalle["mes_actual"],
+            tipos_cambio=detalle.get("tipos_cambio"),
         )
         counts = detalle["counts"]
         return {

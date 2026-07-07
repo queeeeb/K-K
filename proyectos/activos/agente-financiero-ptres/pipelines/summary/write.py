@@ -53,6 +53,16 @@ def _poblar_antiguas_por_facturar(sheet, filas: list[list], mes_actual: str) -> 
         sheet.cell(row=11, column=col, value=suma[unidad] or 0)
 
 
+_FILA_TC = {"USD": 6, "EUR": 7, "CAD": 8}
+
+
+def _escribir_tipos_cambio(sheet, tipos_cambio: dict) -> None:
+    for moneda, fila in _FILA_TC.items():
+        valor = tipos_cambio.get(moneda)
+        if valor is not None:
+            sheet.cell(row=fila, column=3, value=valor)
+
+
 def escribir_hoja_mes(
     ruta_origen: str,
     ruta_destino: str,
@@ -61,10 +71,13 @@ def escribir_hoja_mes(
     filas: list[list],
     concentrado: dict,
     mes_actual: str,
+    tipos_cambio: dict | None = None,
 ) -> list[str]:
     wb = load_workbook(ruta_origen, keep_vba=ruta_origen.endswith(".xlsm"))
     nueva = _duplicate_sheet(wb, hoja_mes_anterior, hoja_mes_nuevo)
     _limpiar_seccion_b(nueva)
+    if tipos_cambio:
+        _escribir_tipos_cambio(nueva, tipos_cambio)
 
     encabezados = [
         "Cotizacion", "Cierre", "Año", "Periodo", "CC", "Cliente", "Nombre Proyecto",
