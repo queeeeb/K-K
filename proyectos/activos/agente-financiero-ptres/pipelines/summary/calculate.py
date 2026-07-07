@@ -31,57 +31,43 @@ def cruzar_cierres(
 
 
 def reconciliar(
-    provisiones_mes_anterior: list[dict],
-    facturas_mes: list[dict],
+    ledger_vivo: list[dict],
+    cierres: list[dict],
     provisiones_actuales: list[dict],
     alertas: list[str] | None = None,
     codigos_conocidos: set[str] | None = None,
 ) -> dict:
-    facturados = {
-        extraer_codigo(f["proyecto"], formato="guion")
-        for f in facturas_mes
-        if f["estado"] in ("Sin pagar", "Pagado")
-    }
-
     alertas = list(alertas or [])
-    actuales_por_codigo = {
-        extraer_codigo(p["proyecto"], formato="limpio"): p for p in provisiones_actuales
-    }
+    codigos_conocidos = codigos_conocidos or set()
 
-    canceladas = []
-    activas = []
-    for provision in provisiones_mes_anterior:
-        codigo = extraer_codigo(provision["proyecto"], formato="limpio")
-        if codigo in facturados:
-            canceladas.append(provision)
-            continue
+    cierres_por_clave = {(c["codigo"], c["anio"], c["mes"]): c for c in cierres}
+    claves_aplicadas = set()
 
-        actual = actuales_por_codigo.pop(codigo, None)
-        if actual is not None:
-            activas.append({
-                **provision,
-                "monto_mxn": actual["monto_mxn"],
-                "monto_mxn_anterior": provision["monto_mxn"],
-                "moneda": actual.get("moneda", provision.get("moneda", "MXN")),
-                "monto_original": actual.get("monto_original", actual["monto_mxn"]),
-                "tc": actual.get("tc", 1),
-            })
+    mantenidas, cerradas = [], []
+    for fila in ledger_vivo:
+        clave = (fila["proyecto"], fila.get("anio"), fila.get("periodo"))
+        if clave in cierres_por_clave:
+            cerradas.append(fila)
+            claves_aplicadas.add(clave)
         else:
-            activas.append({**provision, "monto_mxn_anterior": provision["monto_mxn"]})
+            mantenidas.append(fila)
+
+    for clave, cierre in cierres_por_clave.items():
+        if clave not in claves_aplicadas:
+            codigo, anio, mes = clave
             alertas.append(
-                f"Proyecto {codigo} no se encontró en ninguna fuente este mes ni fue facturado — "
-                "se mantiene el monto anterior."
+                f"Cierre de {codigo} ({mes} {anio}, origen {cierre['origen']}) no encontró "
+                "fila abierta en el ledger — no se aplicó, requiere revisión manual."
             )
 
-    codigos_conocidos = codigos_conocidos or set()
     nuevas = [
         {**p, "codigo_nuevo": p["proyecto"] not in codigos_conocidos}
-        for p in actuales_por_codigo.values()
+        for p in provisiones_actuales
     ]
 
     return {
-        "canceladas": canceladas,
-        "activas": activas,
+        "mantenidas": mantenidas,
+        "cerradas": cerradas,
         "nuevas": nuevas,
         "alertas": alertas,
     }
