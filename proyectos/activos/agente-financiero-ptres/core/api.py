@@ -63,10 +63,8 @@ def _audit_entries_from_plan(pipeline: str, plan: dict) -> list[dict]:
     entries = []
     if pipeline == "summary":
         resumen = plan.get("resumen", {})
-        for r in resumen.get("canceladas", []):
+        for r in resumen.get("cerradas", []):
             entries.append({"fila": r["proyecto"], "anterior": str(r["monto_mxn"]), "nuevo": "Cancelar"})
-        for r in resumen.get("activas", []):
-            entries.append({"fila": r["proyecto"], "anterior": str(r.get("monto_mxn_anterior") or ""), "nuevo": str(r["monto_mxn"])})
         for r in resumen.get("nuevas", []):
             entries.append({"fila": r["proyecto"], "anterior": None, "nuevo": str(r["monto_mxn"])})
     elif pipeline == "pl":

@@ -13,16 +13,22 @@ from pipelines.pl.spec import build_pl_spec
 
 def _mock_interpret_summary(raw_files):
     return {
-        "provisiones_mes_anterior": [
-            {"proyecto": "26gmx3000.001", "monto_mxn": 150000, "cc": 3000, "cliente": "BorgWarner MX"},
-            {"proyecto": "26gmx4000.002", "monto_mxn": 80000,  "cc": 4000, "cliente": "P3 USA"},
+        "ledger_vivo": [
+            {"proyecto": "26gmx3000.001", "anio": 2026, "periodo": "Abril", "monto_mxn": 150000,
+             "cc": 3000, "cliente": "BorgWarner MX", "nombre_proyecto": "", "moneda": "MXN",
+             "monto_original": 150000, "tc": 1},
+            {"proyecto": "26gmx4000.002", "anio": 2026, "periodo": "Abril", "monto_mxn": 80000,
+             "cc": 4000, "cliente": "P3 USA", "nombre_proyecto": "", "moneda": "MXN",
+             "monto_original": 80000, "tc": 1},
         ],
-        "facturas_mes": [
-            {"proyecto": "26gmx3000.001-BorgWarner MX- Proyecto Uno", "estado": "Pagado"}
+        "cierres": [
+            {"codigo": "26gmx3000.001", "anio": 2026, "mes": "Abril", "origen": "facturacion"},
         ],
         "provisiones_actuales": [
-            {"proyecto": "26gmx2000.005", "monto_mxn": 200000, "cc": 2000, "cliente": "Cliente Nuevo"}
+            {"proyecto": "26gmx2000.005", "monto_mxn": 200000, "cc": 2000, "cliente": "Cliente Nuevo",
+             "moneda": "MXN", "monto_original": 200000, "tc": 1}
         ],
+        "concentrado": {},
         "alertas": [],
     }
 
@@ -58,20 +64,23 @@ def _build_write_summary():
     def write(detalle, archivo_destino=None):
         nombre = f"Summary_{detalle['hoja_mes_nuevo']}.xlsm"
         ruta = os.path.join(reportes_dir, nombre)
-        escribir_hoja_mes(
+        alertas_kpi = escribir_hoja_mes(
             ruta_origen=detalle["ruta_origen"],
             ruta_destino=ruta,
             hoja_mes_anterior=detalle["hoja_mes_anterior"],
             hoja_mes_nuevo=detalle["hoja_mes_nuevo"],
             filas=detalle["filas"],
+            concentrado=detalle["concentrado"],
+            mes_actual=detalle["mes_actual"],
         )
         counts = detalle["counts"]
         return {
             "archivo": nombre,
-            "filas_escritas": counts["activas"] + counts["nuevas"] + counts["canceladas"],
-            "canceladas": counts["canceladas"],
-            "activas": counts["activas"],
+            "filas_escritas": counts["mantenidas"] + counts["nuevas"] + counts["cerradas"],
+            "cerradas": counts["cerradas"],
+            "mantenidas": counts["mantenidas"],
             "nuevas": counts["nuevas"],
+            "alertas_kpi": alertas_kpi,
         }
 
     return write
@@ -160,9 +169,9 @@ else:
         _summary_spec,
         write=lambda detalle, archivo_destino: {
             "archivo": "mock_summary_mayo.xlsm",
-            "filas_escritas": detalle["counts"]["activas"] + detalle["counts"]["nuevas"] + detalle["counts"]["canceladas"],
-            "canceladas": detalle["counts"]["canceladas"],
-            "activas": detalle["counts"]["activas"],
+            "filas_escritas": detalle["counts"]["mantenidas"] + detalle["counts"]["nuevas"] + detalle["counts"]["cerradas"],
+            "cerradas": detalle["counts"]["cerradas"],
+            "mantenidas": detalle["counts"]["mantenidas"],
             "nuevas": detalle["counts"]["nuevas"],
         },
     ))

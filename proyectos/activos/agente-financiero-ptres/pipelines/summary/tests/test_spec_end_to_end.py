@@ -22,16 +22,22 @@ def client(tmp_path, monkeypatch):
 
     def fake_interpret(raw_files):
         return {
-            "provisiones_mes_anterior": [
-                {"proyecto": "26gmx3000.001", "monto_mxn": 1000, "cc": 3000, "cliente": "Cliente Uno"},
-                {"proyecto": "26gmx4000.001", "monto_mxn": 2000, "cc": 4000, "cliente": "Cliente Dos"},
+            "ledger_vivo": [
+                {"proyecto": "26gmx4000.001", "anio": 2026, "periodo": "Abril", "monto_mxn": 2000,
+                 "cc": 4000, "cliente": "Cliente Dos", "nombre_proyecto": "", "moneda": "MXN",
+                 "monto_original": 2000, "tc": 1},
+                {"proyecto": "26gmx3000.001", "anio": 2026, "periodo": "Abril", "monto_mxn": 1000,
+                 "cc": 3000, "cliente": "Cliente Uno", "nombre_proyecto": "", "moneda": "MXN",
+                 "monto_original": 1000, "tc": 1},
             ],
-            "facturas_mes": [
-                {"proyecto": "26gmx3000.001-Cliente Uno- Proyecto Uno", "estado": "Pagado"}
+            "cierres": [
+                {"codigo": "26gmx3000.001", "anio": 2026, "mes": "Abril", "origen": "facturacion"},
             ],
             "provisiones_actuales": [
-                {"proyecto": "26gmx2000.005", "monto_mxn": 3000, "cc": 2000, "cliente": "Cliente Cuatro"}
+                {"proyecto": "26gmx2000.005", "monto_mxn": 3000, "cc": 2000, "cliente": "Cliente Cuatro",
+                 "moneda": "MXN", "monto_original": 3000, "tc": 1}
             ],
+            "concentrado": {},
         }
 
     spec = build_summary_spec(
@@ -62,23 +68,25 @@ def test_procesar_confirmar_escribe_archivo(client):
     )
     assert procesar.status_code == 200
     resumen = procesar.json()["resumen"]
-    assert len(resumen["canceladas"]) == 1
+    assert len(resumen["mantenidas"]) == 1
+    assert len(resumen["cerradas"]) == 1
     assert len(resumen["nuevas"]) == 1
     assert "alertas" in resumen
-    assert resumen["activas"][0]["monto_mxn_anterior"] == resumen["activas"][0]["monto_mxn"]
 
     confirmar = test_client.post("/confirmar/summary", json={"token": procesar.json()["token"]}, headers=headers)
     assert confirmar.status_code == 200
     reporte = confirmar.json()["reporte"]
-    assert reporte["canceladas"] == 1
+    assert reporte["mantenidas"] == 1
+    assert reporte["cerradas"] == 1
     assert reporte["nuevas"] == 1
     assert "filas_escritas" in reporte
 
     wb = load_workbook(destino)
     hoja = wb["2026_May"]
-    assert hoja.cell(row=14, column=8).value == "26gmx2000.005"
-    assert hoja.cell(row=15, column=8).value == "26gmx3000.001"
-    assert hoja.cell(row=15, column=2).value == "Cancelar"
+    assert hoja.cell(row=13, column=8).value == "26gmx4000.001"
+    assert hoja.cell(row=14, column=8).value == "26gmx3000.001"
+    assert hoja.cell(row=14, column=2).value == "Cancelar"
+    assert hoja.cell(row=15, column=8).value == "26gmx2000.005"
     for row in range(1, 12):
         assert hoja.cell(row=row, column=1).value == f"KPI fila {row}"
 
@@ -107,7 +115,7 @@ def test_nombrar_actualiza_plan_antes_de_confirmar(client):
 
     wb = load_workbook(destino)
     hoja = wb["2026_May"]
-    assert hoja.cell(row=14, column=6).value == "Cliente Cuatro Renombrado"
+    assert hoja.cell(row=15, column=6).value == "Cliente Cuatro Renombrado"
 
 
 def test_confirmar_sin_nombrar_permite_continuar(client):

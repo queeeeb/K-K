@@ -5,7 +5,6 @@ from pipelines.summary.extract_fuentes import (
     extraer_consulting,
     extraer_ds,
     extraer_engineering,
-    extraer_facturacion,
     pares_cierre_facturacion,
 )
 
@@ -329,19 +328,3 @@ def test_extraer_consulting_sin_descripcion_devuelve_nombre_vacio():
     resultado = extraer_consulting(rows, estructura)
 
     assert resultado[0]["nombre_proyecto"] == ""
-
-
-def test_extraer_facturacion_devuelve_proyecto_y_estado_crudos():
-    rows = [
-        ["Proyecto", "Estado"],
-        ["26gmx3000.001-Cliente Uno- Proyecto Uno", "Pagado"],
-        ["26gmx7000.099-Cliente Tres- Proyecto Tres", "Sin pagar"],
-    ]
-    estructura = {"proyecto_columna": 0, "estado_columna": 1}
-
-    resultado = extraer_facturacion(rows, estructura)
-
-    assert resultado == [
-        {"proyecto": "26gmx3000.001-Cliente Uno- Proyecto Uno", "estado": "Pagado"},
-        {"proyecto": "26gmx7000.099-Cliente Tres- Proyecto Tres", "estado": "Sin pagar"},
-    ]

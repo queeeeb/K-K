@@ -112,16 +112,6 @@ def extraer_consulting(rows: list[list], estructura: dict) -> list[dict]:
     return resultado
 
 
-def extraer_facturacion(rows: list[list], estructura: dict) -> list[dict]:
-    proyecto_col = estructura["proyecto_columna"]
-    estado_col = estructura["estado_columna"]
-    return [
-        {"proyecto": row[proyecto_col], "estado": row[estado_col]}
-        for row in rows[1:]
-        if row[proyecto_col]
-    ]
-
-
 def pares_cierre_facturacion(rows: list[list], estructura: dict) -> list[tuple[str, int, str]]:
     proyecto_col = estructura["proyecto_columna"]
     estado_col = estructura["estado_columna"]
