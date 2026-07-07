@@ -80,6 +80,7 @@ def extraer_consulting(rows: list[list], estructura: dict) -> list[dict]:
     project_col = estructura["project_columna"]
     trigger_col = estructura["trigger_columna"]
     monto_col = estructura["monto_columna"]
+    moneda_col = estructura.get("moneda_columna")
 
     resultado = []
     bloque = None
@@ -91,13 +92,14 @@ def extraer_consulting(rows: list[list], estructura: dict) -> list[dict]:
             if status.strip() in _STATUS_CONSULTING_ACTIVOS:
                 lineas = row[project_col].split("\n")
                 codigo = lineas[0].strip().rstrip("-. ").strip()
+                moneda = _texto(row[moneda_col]).upper() if moneda_col is not None else ""
                 bloque = {
                     "proyecto": codigo,
                     "cliente": lineas[1].strip() if len(lineas) > 1 else "",
                     "nombre_proyecto": "\n".join(l.strip() for l in lineas[2:]) if len(lineas) > 2 else "",
                     "monto_mxn": 0,
                     "cc": _cc_desde_codigo(codigo),
-                    "moneda": "MXN",
+                    "moneda": moneda or "MXN",
                 }
             else:
                 bloque = None

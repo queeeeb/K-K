@@ -238,6 +238,33 @@ def test_extraer_consulting_suma_varias_filas_total_honorarios_del_mismo_bloque(
     }]
 
 
+def test_extraer_consulting_lee_moneda_usd_de_la_columna():
+    rows = [
+        ["STATUS", "PROJECT", "Consultor", "Total", "$"],
+        ["FACTURADO", "26gmx3000.039\nLEAR\nQuality VSM", "Total honorarios", 14400, "USD"],
+    ]
+    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2,
+                  "monto_columna": 3, "moneda_columna": 4}
+
+    resultado = extraer_consulting(rows, estructura)
+
+    assert resultado[0]["moneda"] == "USD"
+    assert resultado[0]["monto_mxn"] == 14400
+
+
+def test_extraer_consulting_moneda_vacia_default_mxn():
+    rows = [
+        ["STATUS", "PROJECT", "Consultor", "Total", "$"],
+        ["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", "Total honorarios", 600, None],
+    ]
+    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2,
+                  "monto_columna": 3, "moneda_columna": 4}
+
+    resultado = extraer_consulting(rows, estructura)
+
+    assert resultado[0]["moneda"] == "MXN"
+
+
 def test_extraer_consulting_ignora_status_distinto_de_provision_o_facturado():
     rows = [
         ["STATUS", "PROJECT", "Consultor", "Total"],

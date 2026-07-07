@@ -117,9 +117,11 @@ def interpret_consulting(rows: list[list], anthropic_client) -> dict:
         "Si hay varias filas con 'Total honorarios' en el mismo bloque (ej. por moneda distinta), "
         "se suman todas. El código de proyecto viene en una celda multilínea "
         "(código\\ncliente\\ndescripción). Identifica las columnas de STATUS, PROJECT, la columna "
-        "disparador (donde aparece el texto 'Total honorarios') y la columna de monto. "
+        "disparador (donde aparece el texto 'Total honorarios'), la columna de monto, y la columna "
+        "de MONEDA del proyecto (encabezado suele ser '$', con valores tipo USD/MXN en la primera "
+        "fila del bloque). "
         "Responde solo JSON con las llaves: status_columna, project_columna, "
-        "trigger_columna, monto_columna. "
+        "trigger_columna, monto_columna, moneda_columna. "
         f"{_INSTRUCCION_INDICE}\n\n"
         f"Filas: {filas}"
     )

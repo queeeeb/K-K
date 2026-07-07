@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -31,7 +31,7 @@ def test_interpretar_summary_combina_las_4_fuentes():
         {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2},
         {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
         {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
-        {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3},
+        {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3, "moneda_columna": 4},
     ])
 
     resultado = interpretar_summary(raw_files, client, mes="2026-05")
@@ -105,7 +105,7 @@ def test_interpretar_summary_reporta_alertas_de_codigos_sospechosos():
         {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2},
         {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
         {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
-        {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3},
+        {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3, "moneda_columna": 4},
     ])
 
     resultado = interpretar_summary(raw_files, client, mes="2026-05")
@@ -113,3 +113,4 @@ def test_interpretar_summary_reporta_alertas_de_codigos_sospechosos():
     assert not any("sospechoso" in a.lower() for a in resultado["alertas"])
     proyectos = {p["proyecto"] for p in resultado["provisiones_actuales"]}
     assert "26gmx7000.002" in proyectos
+
