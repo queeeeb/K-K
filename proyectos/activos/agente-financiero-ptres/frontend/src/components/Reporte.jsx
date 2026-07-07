@@ -7,8 +7,8 @@ export default function Reporte({ reporte, mes, onBack }) {
   const esPL = reporte.archivo?.startsWith('PL_')
 
   const items = esPL ? [] : [
-    ['Canceladas', reporte.canceladas,    'text-rose-600'],
-    ['Provisiones', reporte.activas,      'text-emerald-600'],
+    ['Cerradas',    reporte.cerradas,     'text-rose-600'],
+    ['Se mantienen', reporte.mantenidas,  'text-emerald-600'],
     ['Nuevas',      reporte.nuevas,       'text-blue-600'],
     ['Total',       reporte.filas_escritas, 'text-slate-900'],
   ]

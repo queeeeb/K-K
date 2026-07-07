@@ -1,9 +1,19 @@
 import { useState } from 'react'
-import { ShieldCheck, AlertTriangle, Clock, CheckCircle2, XCircle, Tag } from 'lucide-react'
+import { ShieldCheck, AlertTriangle, Clock, CheckCircle2, XCircle, Tag, ChevronDown, ChevronRight } from 'lucide-react'
 import Money from './Money'
 import StatusPill from './StatusPill'
-import Delta from './Delta'
 import Tabla, { Row } from './Tabla'
+
+const ORIGEN_BADGE = {
+  ambas: { label: 'Ambas', clase: 'bg-emerald-100 text-emerald-700' },
+  facturacion: { label: 'Facturación', clase: 'bg-sky-100 text-sky-700' },
+  notas_ds: { label: 'Notas DS', clase: 'bg-amber-100 text-amber-700' },
+}
+
+const NOMBRE_MES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
 
 function calcularTotales(resumen) {
   const mapa = {}
@@ -13,7 +23,7 @@ function calcularTotales(resumen) {
       mapa[r.cc].total += (r.monto_mxn ?? 0)
     })
   }
-  sumar(resumen.activas)
+  sumar(resumen.mantenidas)
   sumar(resumen.nuevas)
   return Object.values(mapa).sort((a, b) => a.cc - b.cc)
 }
@@ -22,9 +32,11 @@ export default function Resumen({ pact, mes, resumen, onConfirmar, onRechazar, o
   const [nombres, setNombres] = useState({})
   const [ocultarNombrar, setOcultarNombrar] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  const [verMantenidas, setVerMantenidas] = useState(false)
 
   if (!resumen) return null
-  const total = resumen.canceladas.length + resumen.activas.length + resumen.nuevas.length
+  const cierres = resumen.cierres ?? []
+  const total = resumen.mantenidas.length + resumen.cerradas.length + resumen.nuevas.length
   const totales = calcularTotales(resumen)
   const sinNombre = resumen.nuevas.filter(r => r.codigo_nuevo)
   const hayNombres = Object.values(nombres).some(n => n.trim() !== '')
@@ -54,6 +66,13 @@ export default function Resumen({ pact, mes, resumen, onConfirmar, onRechazar, o
           </div>
           <p className="text-sm text-slate-500">{pact.full} · <span className="font-num">{mes}</span> · {total} filas listas para escribir.</p>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 text-sm">
+        <span className="rounded-lg bg-slate-100 px-3 py-1.5 font-medium text-slate-700">Se mantienen · {resumen.mantenidas.length}</span>
+        <span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-medium text-emerald-700">Nuevas · {resumen.nuevas.length}</span>
+        <span className="rounded-lg bg-rose-50 px-3 py-1.5 font-medium text-rose-700">Cierres · {cierres.length}</span>
+        <span className="rounded-lg bg-amber-50 px-3 py-1.5 font-medium text-amber-800">Alertas · {resumen.alertas.length}</span>
       </div>
 
       <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3">
@@ -117,32 +136,6 @@ export default function Resumen({ pact, mes, resumen, onConfirmar, onRechazar, o
         </div>
       )}
 
-      <Tabla tone="cancel" titulo="Canceladas" sub="Ya se facturaron — cambian de estatus en su fila"
-        head={['CC', 'Cliente', 'Proyecto', 'Monto MXN']} align={[false, false, false, true]}>
-        {resumen.canceladas.map((r, i) => (
-          <Row key={i} align={[false, false, false, true]} cells={[
-            <StatusPill tone="cc">{r.cc}</StatusPill>,
-            r.cliente,
-            r.proyecto,
-            <Money value={r.monto_mxn} className="text-slate-500 line-through" />,
-          ]} />
-        ))}
-      </Tabla>
-
-      <Tabla tone="active" titulo="Activas" sub="Siguen como provisión — anterior vs. nuevo"
-        head={['CC', 'Cliente', 'Proyecto', 'Antes', 'Ahora', 'Δ']} align={[false, false, false, true, true, true]}>
-        {resumen.activas.map((r, i) => (
-          <Row key={i} align={[false, false, false, true, true, true]} cells={[
-            <StatusPill tone="cc">{r.cc}</StatusPill>,
-            r.cliente,
-            r.proyecto,
-            <Money value={r.monto_mxn_anterior} className="text-slate-400" />,
-            <Money value={r.monto_mxn} className="font-medium text-slate-900" />,
-            <Delta antes={r.monto_mxn_anterior} ahora={r.monto_mxn} />,
-          ]} />
-        ))}
-      </Tabla>
-
       <Tabla tone="new" titulo="Nuevas" sub="Provisiones nuevas detectadas este mes"
         head={['CC', 'Cliente', 'Proyecto', 'Monto MXN']} align={[false, false, false, true]}>
         {resumen.nuevas.map((r, i) => (
@@ -154,6 +147,49 @@ export default function Resumen({ pact, mes, resumen, onConfirmar, onRechazar, o
           ]} />
         ))}
       </Tabla>
+
+      <Tabla tone="cancel" titulo="Cierres detectados" sub="Facturados este mes — la fila del periodo pasa a Cancelar"
+        head={['CC', 'Proyecto', 'Periodo', 'Origen']} align={[false, false, false, false]}>
+        {cierres.map((c, i) => {
+          const badge = ORIGEN_BADGE[c.origen] ?? { label: c.origen, clase: 'bg-slate-100 text-slate-600' }
+          const mesNombre = typeof c.mes === 'number' ? NOMBRE_MES[c.mes - 1] : c.mes
+          return (
+            <Row key={i} align={[false, false, false, false]} cells={[
+              <StatusPill tone="cc">{String(c.codigo).slice(5, 9)}</StatusPill>,
+              c.codigo,
+              `${mesNombre} ${c.anio}`,
+              <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${badge.clase}`}>{badge.label}</span>,
+            ]} />
+          )
+        })}
+      </Tabla>
+
+      <div className="rounded-xl border border-slate-200 bg-white">
+        <button onClick={() => setVerMantenidas(v => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-slate-700">
+          <span className="flex items-center gap-2">
+            {verMantenidas ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            Se mantienen · {resumen.mantenidas.length}
+          </span>
+          <span className="text-xs font-normal text-slate-400">provisiones de meses anteriores, sin cambios</span>
+        </button>
+        {verMantenidas && (
+          <div className="border-t border-slate-100 px-4 pb-4 pt-2">
+            <Tabla tone="active" titulo="" sub=""
+              head={['CC', 'Cliente', 'Proyecto', 'Periodo', 'Monto MXN']} align={[false, false, false, false, true]}>
+              {resumen.mantenidas.map((r, i) => (
+                <Row key={i} align={[false, false, false, false, true]} cells={[
+                  <StatusPill tone="cc">{r.cc}</StatusPill>,
+                  r.cliente,
+                  r.proyecto,
+                  `${r.periodo ?? ''} ${r.anio ?? ''}`.trim(),
+                  <Money value={r.monto_mxn} className="text-slate-600" />,
+                ]} />
+              ))}
+            </Tabla>
+          </div>
+        )}
+      </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur lg:left-64">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-3.5 sm:flex-row sm:items-center sm:justify-between lg:px-10">
