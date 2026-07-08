@@ -162,8 +162,13 @@ export default function App() {
                 mes={MESES.find(m => m.value === mes)?.label ?? mes}
                 resumen={plan?.resumen}
                 onNombrar={async (nombres) => {
-                  const data = await api.nombrar(pipeline, plan.token, nombres)
-                  setPlan(p => ({ ...p, resumen: data.resumen }))
+                  try {
+                    const data = await api.nombrar(pipeline, plan.token, nombres)
+                    setPlan(p => ({ ...p, resumen: data.resumen }))
+                  } catch (err) {
+                    setErrorMsg(err.message)
+                    setScreen('error')
+                  }
                 }}
                 onConfirmar={async () => {
                   setScreen('writing')
