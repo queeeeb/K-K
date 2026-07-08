@@ -2,6 +2,7 @@ from pipelines.summary.calculate import (
     actualizar_nombres_nuevas,
     cruzar_cierres,
     extraer_codigo,
+    normalizar_codigo,
     reconciliar,
 )
 
@@ -43,6 +44,36 @@ def test_extraer_codigo_guion():
 
 def test_extraer_codigo_multilinea():
     assert extraer_codigo("26gmx3000.001\nCliente Uno\nProyecto Uno", formato="multilinea") == "26gmx3000.001"
+
+
+def test_extraer_codigo_guion_con_descripcion_por_espacio():
+    assert extraer_codigo("26gmx7000.000156 Cloud", formato="guion") == "26gmx7000.000156"
+
+
+def test_normalizar_codigo_corta_descripcion_por_espacio():
+    assert normalizar_codigo("26gmx7000.000156 Cloud") == "26gmx7000.000156"
+    assert normalizar_codigo("25gmx7000.S02445 Architecture Service") == "25gmx7000.S02445"
+
+
+def test_normalizar_codigo_corta_descripcion_por_guion():
+    assert normalizar_codigo("26gmx2000.003-VW Ingenieria") == "26gmx2000.003"
+    assert normalizar_codigo("26gmx7000.S02671-FP CCOP 2026") == "26gmx7000.S02671"
+
+
+def test_normalizar_codigo_mezcla_espacio_y_guion():
+    assert normalizar_codigo("26gmx7000.S02894 FP-PM Support") == "26gmx7000.S02894"
+
+
+def test_normalizar_codigo_elimina_espacio_tras_punto():
+    assert normalizar_codigo("26gmx7000. S02968 FP Reportes 2026") == "26gmx7000.S02968"
+
+
+def test_normalizar_codigo_deja_intacto_codigo_limpio():
+    assert normalizar_codigo("26gmx2000.013") == "26gmx2000.013"
+
+
+def test_normalizar_codigo_no_toca_formato_invalido():
+    assert normalizar_codigo("24gxm3000.037") == "24gxm3000.037"
 
 
 def _fila_ledger(proyecto, anio, periodo, monto=1000, cc=3000):

@@ -1,5 +1,6 @@
 import json
 
+from pipelines.summary.calculate import normalizar_codigo
 from pipelines.summary.periodos import normalizar_periodo
 
 _MAX_FILAS_PROMPT = 15
@@ -154,7 +155,7 @@ def interpret_notas_ds(notas, anthropic_client, anio_contexto: int):
         for mes_txt in obj.get("meses", []):
             normalizado = normalizar_periodo(mes_txt, anio_contexto=anio_contexto)
             if normalizado is not None:
-                pares.append((obj["codigo"], normalizado[0], normalizado[1]))
+                pares.append((normalizar_codigo(obj["codigo"]), normalizado[0], normalizado[1]))
     return pares
 
 

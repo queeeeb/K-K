@@ -1,11 +1,28 @@
+import re
+
+_CODIGO_RE = re.compile(r"^(\d{2}gmx\d+\.)\s*([^\s-]+)")
+
+
+def normalizar_codigo(texto):
+    if not isinstance(texto, str):
+        return texto
+    limpio = texto.strip()
+    match = _CODIGO_RE.match(limpio)
+    if not match:
+        return limpio
+    return match.group(1) + match.group(2)
+
+
 def extraer_codigo(texto: str, formato: str) -> str:
     if formato == "limpio":
-        return texto.strip()
-    if formato == "guion":
-        return texto.split("-")[0].strip()
-    if formato == "multilinea":
-        return texto.split("\n")[0].strip()
-    raise ValueError(f"Formato de código desconocido: {formato}")
+        base = texto.strip()
+    elif formato == "guion":
+        base = texto.strip()
+    elif formato == "multilinea":
+        base = texto.split("\n")[0].strip()
+    else:
+        raise ValueError(f"Formato de código desconocido: {formato}")
+    return normalizar_codigo(base)
 
 
 def cruzar_cierres(

@@ -1,6 +1,6 @@
 import re
 
-from pipelines.summary.calculate import extraer_codigo
+from pipelines.summary.calculate import extraer_codigo, normalizar_codigo
 from pipelines.summary.periodos import normalizar_periodo
 
 
@@ -38,7 +38,7 @@ def extraer_ds(rows: list[list], estructura: dict) -> list[dict]:
         monto = rows[i][provision_col]
         if not monto or abs(monto) < _PROVISION_MINIMA:
             continue
-        codigo_limpio = codigo.strip().rstrip("-. ").strip()
+        codigo_limpio = normalizar_codigo(codigo)
         moneda = _texto(rows[i][moneda_col]).upper() if moneda_col is not None else ""
         resultado.append({
             "proyecto": codigo_limpio,
@@ -63,11 +63,12 @@ def extraer_engineering(rows: list[list], estructura: dict) -> list[dict]:
         monto = rows[i][mes_col]
         if not monto or abs(monto) < _PROVISION_MINIMA:
             continue
-        proyecto, _, cliente = crudo.partition("-")
+        _, _, cliente = crudo.partition("-")
+        proyecto = normalizar_codigo(crudo)
         resultado.append({
-            "proyecto": proyecto.strip(),
+            "proyecto": proyecto,
             "monto_mxn": monto,
-            "cc": _cc_desde_codigo(proyecto.strip()),
+            "cc": _cc_desde_codigo(proyecto),
             "cliente": cliente.strip(),
             "nombre_proyecto": _texto(rows[i][nombre_col]),
             "moneda": "MXN",
@@ -90,7 +91,7 @@ def extraer_consulting(rows: list[list], estructura: dict) -> list[dict]:
         if not monto or abs(monto) < _PROVISION_MINIMA:
             continue
         lineas = row[project_col].split("\n")
-        codigo = lineas[0].strip().rstrip("-. ").strip()
+        codigo = normalizar_codigo(lineas[0])
         moneda = _texto(row[moneda_col]).upper() if moneda_col is not None else ""
         resultado.append({
             "proyecto": codigo,

@@ -1,5 +1,7 @@
 from openpyxl import load_workbook
 
+from pipelines.summary.calculate import normalizar_codigo
+
 
 def leer_notas_num_factura_ds(
     ruta: str, num_factura_col: int, codigo_col: int, fila_inicio: int
@@ -25,7 +27,7 @@ def leer_provisiones_mes_anterior(wb, hoja: str) -> list[dict]:
         if cierre is None or cierre.strip() != "Provision":
             continue
         provisiones.append({
-            "proyecto": sheet.cell(row=row, column=8).value,
+            "proyecto": normalizar_codigo(sheet.cell(row=row, column=8).value),
             "monto_mxn": sheet.cell(row=row, column=12).value,
             "cc": sheet.cell(row=row, column=5).value,
             "cliente": sheet.cell(row=row, column=6).value,
