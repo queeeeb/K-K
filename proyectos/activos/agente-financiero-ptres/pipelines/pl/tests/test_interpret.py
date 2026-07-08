@@ -1,36 +1,30 @@
-import json
-from unittest.mock import MagicMock
-
-from pipelines.pl.interpret import clasificar_cuentas
+from pipelines.pl.interpret import clasificar_estructura
 
 
-def _fake_client(json_response: dict):
-    client = MagicMock()
-    message = MagicMock()
-    message.content = [MagicMock(text=json.dumps(json_response))]
-    client.messages.create.return_value = message
-    return client
-
-
-def test_clasificar_cuentas_marca_nuevo():
+def test_clasifica_por_numero_y_excluye_lump_e_ignoradas():
     cuentas = [
-        {"numero": "6100-007-099-000", "nombre": "SUSCRIPCION NUEVA SaaS"},
+        {"numero": "4110-001-001-000", "nombre": "VENTAS NACIONALES",
+         "segmentos": {"ING": {"cargos": 0, "abonos": 999}}},  # lump: se excluye
+        {"numero": "6100-008-001-000", "nombre": "COMISIONES BANCARIAS",
+         "segmentos": {"ING": {"cargos": 30, "abonos": 0}}},  # 6008 -> EXPENSES
+        {"numero": "2110-001-000-000", "nombre": "PROVEEDORES",
+         "segmentos": {"ING": {"cargos": 5, "abonos": 0}}},  # balance: se ignora
     ]
-    fake = _fake_client(
-        {
-            "cuentas": [
-                {
-                    "numero": "6100-007-099-000",
-                    "grupo": "6007",
-                    "rubro": "EXPENSES",
-                    "label_en": "  NEW SAAS SUBSCRIPTION",
-                    "nuevo": True,
-                }
-            ]
-        }
+    res = clasificar_estructura(cuentas, ventas_nacionales=[])
+    numeros = {c["numero"]: c for c in res["cuentas"]}
+    assert "4110-001-001-000" not in numeros
+    assert "2110-001-000-000" not in numeros
+    assert numeros["6100-008-001-000"]["rubro"] == "EXPENSES"
+
+
+def test_ventas_nacionales_se_convierten_en_cuentas_incomes():
+    res = clasificar_estructura(
+        cuentas=[],
+        ventas_nacionales=[
+            {"cliente": "FORD MOTOR COMPANY", "segmento": "ING", "monto": 1500.0},
+        ],
     )
-
-    result = clasificar_cuentas(cuentas, anthropic_client=fake)
-
-    assert result["cuentas"][0]["rubro"] == "EXPENSES"
-    assert result["cuentas"][0]["nuevo"] is True
+    ns = res["cuentas"][0]
+    assert ns["rubro"] == "INCOMES"
+    assert ns["numero"].startswith("4")
+    assert ns["segmentos"]["ING"] == {"cargos": 0, "abonos": 1500.0}

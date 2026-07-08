@@ -81,3 +81,46 @@ def test_calcular_pl_porcentaje_sobre_base():
     plan = calcular_pl(_cuentas_demo())
     fila_gasto = next(f for f in plan["rubros"]["EXPENSES"] if f["numero"] == "6100-001-001-000")
     assert fila_gasto["pct"]["ING"] == 0.4
+
+
+def _cuentas_allocation():
+    return [
+        {"numero": "4110-002-001-000", "label": "CONS", "rubro": "INCOMES", "grupo": "4110",
+         "segmentos": {"CONS OPS": {"cargos": 0, "abonos": 100}}},
+        {"numero": "4110-002-002-000", "label": "ENG", "rubro": "INCOMES", "grupo": "4110",
+         "segmentos": {"ING": {"cargos": 0, "abonos": 300}}},
+        {"numero": "4110-002-003-000", "label": "DS", "rubro": "INCOMES", "grupo": "4110",
+         "segmentos": {"DIGITAL SOLUTIONS": {"cargos": 0, "abonos": 600}}},
+        {"numero": "6100-007-050-000", "label": "  P3 GLOBAL GMBH SERVICES", "rubro": "EXPENSES",
+         "grupo": "6007", "segmentos": {"BO": {"cargos": 200, "abonos": 0}}},
+        {"numero": "6100-006-001-000", "label": "  TELEPHONE", "rubro": "EXPENSES", "grupo": "6006",
+         "segmentos": {"BO": {"cargos": 300, "abonos": 0}}},
+    ]
+
+
+def test_allocations_convencion_vf_final():
+    plan = calcular_pl(_cuentas_allocation())
+    # GMBH se saca de Expenses: solo queda el otro gasto de BO (300)
+    assert plan["totales"]["EXPENSES"]["BO"] == 300
+    assert plan["totales"]["EXPENSES"]["TOTAL"] == 300
+    assert not any(f["label"] == "  P3 GLOBAL GMBH SERVICES" for f in plan["rubros"]["EXPENSES"])
+
+    al = plan["allocations"]
+    # GMBH (200): BO positivo, y a CONS/ING/DS por % de ingreso (100/300/600 de 1000)
+    assert al["gmbh"]["BO"] == 200
+    assert al["gmbh"]["CONS OPS"] == 20
+    assert al["gmbh"]["ING"] == 60
+    assert al["gmbh"]["DIGITAL SOLUTIONS"] == 120
+    assert al["gmbh"]["TOTAL"] == 200
+    # Back Office (300): BO positivo, repartido por % de ingreso
+    assert al["back_office"]["BO"] == 300
+    assert al["back_office"]["DIGITAL SOLUTIONS"] == 180
+    assert al["back_office"]["TOTAL"] == 300
+
+    oa = plan["totales"]["OPERATING_AFTER_ALLOCATION"]
+    assert oa["BO"] == 0
+    assert oa["ING"] == 150
+    # After TOTAL = operating before (700) - GMBH (200): el GMBH reduce el total
+    assert oa["TOTAL"] == 500
+    assert plan["totales"]["NET_PROFIT"]["BO"] == 0
+    assert plan["totales"]["NET_PROFIT"]["TOTAL"] == 500

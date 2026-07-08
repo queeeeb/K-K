@@ -1,71 +1,67 @@
+"""Interpretación del export de Contpaqi -> estructura clasificada.
+
+La clasificación cuenta->grupo->rubro y la traducción ES->EN son deterministas
+(portadas del macro GenerarPL.bas, ver referencia.py). La IA queda disponible solo
+para normalizar razones sociales de clientes de Ventas Nacionales y marcar cuentas
+nuevas; el cálculo de montos nunca pasa por la IA (ESPECIFICACION §4).
+"""
 import io
-import json
 
 import openpyxl
 
-from pipelines.pl.extract import extraer_cuentas
+from pipelines.pl.extract import CUENTA_VENTAS_NACIONALES, extraer
+from pipelines.pl.referencia import (
+    GRUPO_VENTAS_NACIONALES,
+    LABEL_PTU,
+    clasificar_por_numero,
+    normalizar_cliente,
+    traducir,
+)
 
 
-def _ask_claude(anthropic_client, prompt: str, max_tokens: int = 4096) -> dict:
-    message = anthropic_client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = message.content[0].text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-    return json.loads(text)
+def clasificar_estructura(cuentas: list[dict], ventas_nacionales: list[dict]) -> dict:
+    """Recibe cuentas crudas + desglose de ventas nacionales y devuelve las cuentas
+    clasificadas listas para calcular. Determinista.
+    """
+    clasificadas = []
+    for cuenta in cuentas:
+        numero = cuenta["numero"]
+        if numero == CUENTA_VENTAS_NACIONALES:
+            continue  # lump-sum: se reemplaza por el desglose por cliente
+        if not cuenta.get("segmentos"):
+            continue
+        grupo, rubro = clasificar_por_numero(numero)
+        if not rubro:
+            continue  # cuenta ajena al P&L: se ignora
+        label = traducir(cuenta["nombre"], grupo)
+        if label == LABEL_PTU:
+            rubro = "EXPENSES"  # PTU va en Expenses, no en Accrued Taxes (convención vf final)
+        clasificadas.append({
+            "numero": numero,
+            "label": label,
+            "rubro": rubro,
+            "grupo": grupo,
+            "segmentos": cuenta["segmentos"],
+        })
+
+    ns_por_cliente: dict[str, dict] = {}
+    for mov in ventas_nacionales:
+        cliente = normalizar_cliente(mov["cliente"])
+        cuenta = ns_por_cliente.setdefault(cliente, {
+            "numero": f"4110NS-{cliente}",
+            "label": cliente,
+            "rubro": "INCOMES",
+            "grupo": GRUPO_VENTAS_NACIONALES,
+            "segmentos": {},
+        })
+        seg = cuenta["segmentos"].setdefault(mov["segmento"], {"cargos": 0.0, "abonos": 0.0})
+        seg["abonos"] += mov["monto"]
+
+    clasificadas.extend(ns_por_cliente.values())
+    return {"cuentas": clasificadas, "alertas": []}
 
 
-_BATCH_SIZE = 30
-
-
-def _clasificar_batch(cuentas: list[dict], anthropic_client) -> list[dict]:
-    prompt = (
-        "Clasifica cada cuenta contable a su rubro del Estado de Resultados (P&L) de P-TRES GROUP. "
-        "Rubros posibles: INCOMES (ventas, prefijo 4110), OTHER_INCOMES (4210/4310/4510), "
-        "EXPENSES (gastos 6100-001 a 6100-008), OTHER_EXPENSES (6100-009), ACCRUED_TAXES (8000 o 0000-000-80). "
-        "Si aparece una cuenta nueva, clasifícala a su rubro correcto y márcala con nuevo=true. "
-        "Cuentas sin rubro P&L (capital, balance, etc.) deben tener rubro null. "
-        "Traduce el nombre al label en inglés del P&L (ES->EN). "
-        "Responde SOLO JSON sin markdown: {\"cuentas\": [{numero, rubro, label_en, nuevo}]}.\n\n"
-        f"Cuentas: {cuentas}"
-    )
-    return _ask_claude(anthropic_client, prompt, max_tokens=4096).get("cuentas", [])
-
-
-def clasificar_cuentas(cuentas: list[dict], anthropic_client) -> dict:
-    resultados = []
-    for i in range(0, len(cuentas), _BATCH_SIZE):
-        resultados.extend(_clasificar_batch(cuentas[i:i + _BATCH_SIZE], anthropic_client))
-    return {"cuentas": resultados}
-
-
-def interpret_pl(wb_bytes: bytes, anthropic_client) -> dict:
+def interpret_pl(wb_bytes: bytes, anthropic_client=None) -> dict:
     wb = openpyxl.load_workbook(io.BytesIO(wb_bytes), data_only=True)
-    ws = wb.active
-
-    cuentas_raw = extraer_cuentas(ws)
-
-    relevantes = [
-        c for c in cuentas_raw
-        if c["numero"].strip()[0] in ("4", "6", "8") and c["segmentos"]
-    ]
-
-    cuentas_input = [{"numero": c["numero"], "nombre": c["nombre"]} for c in relevantes]
-    clasificacion = clasificar_cuentas(cuentas_input, anthropic_client)
-    clf_map = {c["numero"]: c for c in clasificacion.get("cuentas", [])}
-
-    cuentas_final = []
-    for cuenta in relevantes:
-        clf = clf_map.get(cuenta["numero"])
-        if clf and clf.get("rubro"):
-            cuentas_final.append({
-                "numero": cuenta["numero"],
-                "label": clf.get("label_en", cuenta["nombre"]),
-                "rubro": clf["rubro"],
-                "segmentos": cuenta["segmentos"],
-            })
-
-    return {"cuentas": cuentas_final}
+    extraido = extraer(wb.active)
+    return clasificar_estructura(extraido["cuentas"], extraido["ventas_nacionales"])
