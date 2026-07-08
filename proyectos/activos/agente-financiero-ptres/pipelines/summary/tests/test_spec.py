@@ -65,6 +65,6 @@ def test_spec_calculate_produce_grupos_ledger():
     plan = spec.calculate(_estructura_minima(), estado_anterior=None)
     assert len(plan["resumen"]["mantenidas"]) == 1
     assert len(plan["resumen"]["nuevas"]) == 1
-    assert plan["detalle"]["mes_actual"] == "May"
+    assert plan["detalle"]["mes_actual"] == "Mayo"
     assert plan["detalle"]["filas"][0][3] == "Abril"
     assert plan["detalle"]["filas"][-1][7] == "26gmx2000.005"

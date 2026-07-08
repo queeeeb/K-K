@@ -40,9 +40,9 @@ def make_facturacion_mayo() -> None:
     wb = Workbook()
     detalle = wb.active
     detalle.title = "Detalle"
-    detalle.append(["Proyecto", "Estado", "Periodo", "Monto"])
-    detalle.append(["26gmx3000.001-Cliente Uno- Proyecto Uno", "Pagado", datetime(2026, 4, 30), 1000])
-    detalle.append(["26gmx7000.099-Cliente Tres- Proyecto Tres", "Cancelado", datetime(2026, 4, 30), 2000])
+    detalle.append(["Proyecto", "Estado", "Periodo", "Monto", "Tipo de cambio"])
+    detalle.append(["26gmx3000.001-Cliente Uno- Proyecto Uno", "Pagado", datetime(2026, 4, 30), 1000, 1])
+    detalle.append(["26gmx7000.099-Cliente Tres- Proyecto Tres", "Cancelado", datetime(2026, 4, 30), 2000, 1])
 
     concentrado = wb.create_sheet("Concentrado")
     concentrado["A2"], concentrado["B2"] = "CONSULTING", 1000
@@ -87,9 +87,9 @@ def make_overview_consulting_mayo() -> None:
     wb = Workbook()
     sheet = wb.active
     sheet.title = "2026.05"
-    sheet.append(["STATUS", "PROJECT", "Consultor", "Total", "$"])
-    sheet.append(["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", "Gerardo", 500, "MXN"])
-    sheet.append(["", "", "Total honorarios", 600, None])
+    sheet.append(["STATUS", "PROJECT", "Total", "TOTAL", "$"])
+    sheet.append(["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", 500, 600, "MXN"])
+    sheet.append(["", "", "Total honorarios", None, None])
 
     wb.save(FIXTURES_DIR / "overview_consulting_mayo.xlsx")
 

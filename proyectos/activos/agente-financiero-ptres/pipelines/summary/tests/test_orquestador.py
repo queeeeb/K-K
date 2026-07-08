@@ -28,10 +28,10 @@ def test_interpretar_summary_combina_las_4_fuentes():
     }
     # orden de llamadas: facturacion, ds, engineering, consulting
     client = _fake_client_con_respuestas([
-        {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2},
+        {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2, "tc_columna": 4},
         {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
         {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
-        {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3, "moneda_columna": 4},
+        {"status_columna": 0, "project_columna": 1, "total_columna": 3, "moneda_columna": 4},
     ])
 
     resultado = interpretar_summary(raw_files, client, mes="2026-05")
@@ -70,10 +70,10 @@ def test_interpretar_summary_tc_override_gana_sobre_tablero():
         "consulting": str(FIXTURES_DIR / "overview_consulting_mayo.xlsx"),
     }
     client = _fake_client_con_respuestas([
-        {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2},
+        {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2, "tc_columna": 4},
         {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
         {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
-        {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3, "moneda_columna": 4},
+        {"status_columna": 0, "project_columna": 1, "total_columna": 3, "moneda_columna": 4},
     ])
 
     resultado = interpretar_summary(raw_files, client, mes="2026-05", tipos_cambio_override={"USD": 18.5})
@@ -122,10 +122,10 @@ def test_interpretar_summary_reporta_alertas_de_codigos_sospechosos():
         "consulting": str(FIXTURES_DIR / "overview_consulting_mayo.xlsx"),
     }
     client = _fake_client_con_respuestas([
-        {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2},
+        {"proyecto_columna": 0, "estado_columna": 1, "periodo_columna": 2, "tc_columna": 4},
         {"provision_columna": 1, "codigo_columna": 0, "cliente_columna": 6, "nombre_columna": 7, "fila_inicio_datos": 2},
         {"mes_columna": 5, "codigo_columna": 0, "nombre_columna": 6, "fila_inicio_datos": 1},
-        {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3, "moneda_columna": 4},
+        {"status_columna": 0, "project_columna": 1, "total_columna": 3, "moneda_columna": 4},
     ])
 
     resultado = interpretar_summary(raw_files, client, mes="2026-05")

@@ -78,40 +78,59 @@ def extraer_engineering(rows: list[list], estructura: dict) -> list[dict]:
 def extraer_consulting(rows: list[list], estructura: dict) -> list[dict]:
     status_col = estructura["status_columna"]
     project_col = estructura["project_columna"]
-    trigger_col = estructura["trigger_columna"]
-    monto_col = estructura["monto_columna"]
+    total_col = estructura["total_columna"]
     moneda_col = estructura.get("moneda_columna")
 
     resultado = []
-    bloque = None
     for row in rows[1:]:
         status = row[status_col]
-        if status:
-            if bloque is not None:
-                resultado.append(bloque)
-            if status.strip() in _STATUS_CONSULTING_ACTIVOS:
-                lineas = row[project_col].split("\n")
-                codigo = lineas[0].strip().rstrip("-. ").strip()
-                moneda = _texto(row[moneda_col]).upper() if moneda_col is not None else ""
-                bloque = {
-                    "proyecto": codigo,
-                    "cliente": lineas[1].strip() if len(lineas) > 1 else "",
-                    "nombre_proyecto": "\n".join(l.strip() for l in lineas[2:]) if len(lineas) > 2 else "",
-                    "monto_mxn": 0,
-                    "cc": _cc_desde_codigo(codigo),
-                    "moneda": moneda or "MXN",
-                }
-            else:
-                bloque = None
-        if bloque is not None:
-            trigger = row[trigger_col]
-            if isinstance(trigger, str) and trigger.strip().startswith("Total honorarios"):
-                monto = row[monto_col]
-                if monto:
-                    bloque["monto_mxn"] += monto
-    if bloque is not None:
-        resultado.append(bloque)
+        if not isinstance(status, str) or status.strip() not in _STATUS_CONSULTING_ACTIVOS:
+            continue
+        monto = row[total_col]
+        if not monto or abs(monto) < _PROVISION_MINIMA:
+            continue
+        lineas = row[project_col].split("\n")
+        codigo = lineas[0].strip().rstrip("-. ").strip()
+        moneda = _texto(row[moneda_col]).upper() if moneda_col is not None else ""
+        resultado.append({
+            "proyecto": codigo,
+            "cliente": lineas[1].strip() if len(lineas) > 1 else "",
+            "nombre_proyecto": "\n".join(l.strip() for l in lineas[2:]) if len(lineas) > 2 else "",
+            "monto_mxn": monto,
+            "cc": _cc_desde_codigo(codigo),
+            "moneda": moneda or "MXN",
+        })
     return resultado
+
+
+def _moneda_por_tc(tc, tipos_cambio: dict, tolerancia: float = 0.05) -> str | None:
+    if not isinstance(tc, (int, float)):
+        return None
+    if abs(tc - 1) < 1e-6:
+        return "MXN"
+    mejor, mejor_dif = None, None
+    for moneda, ref in tipos_cambio.items():
+        if not ref or ref <= 1:
+            continue
+        dif = abs(tc - ref) / ref
+        if mejor_dif is None or dif < mejor_dif:
+            mejor, mejor_dif = moneda, dif
+    return mejor if mejor_dif is not None and mejor_dif <= tolerancia else None
+
+
+def monedas_engineering_facturacion(rows: list[list], estructura: dict, tipos_cambio: dict) -> dict:
+    proyecto_col = estructura["proyecto_columna"]
+    tc_col = estructura["tc_columna"]
+    monedas = {}
+    for row in rows[1:]:
+        proyecto = row[proyecto_col]
+        if not isinstance(proyecto, str) or "gmx2000" not in proyecto:
+            continue
+        codigo = extraer_codigo(proyecto, formato="guion")
+        moneda = _moneda_por_tc(row[tc_col], tipos_cambio)
+        if moneda is not None:
+            monedas[codigo] = moneda
+    return monedas
 
 
 def pares_cierre_facturacion(rows: list[list], estructura: dict) -> list[tuple[str, int, str]]:

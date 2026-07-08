@@ -1,5 +1,6 @@
 from core.pipeline_spec import PipelineSpec
 from pipelines.summary.calculate import actualizar_nombres_nuevas, reconciliar
+from pipelines.summary.periodos import nombre_mes
 from pipelines.summary.write import escribir_hoja_mes
 
 SOURCES = [
@@ -21,7 +22,8 @@ def build_summary_spec(
         hoja_mes_nuevo_actual = estructura.get("hoja_mes_nuevo") or hoja_mes_nuevo
         hoja_mes_anterior_actual = estructura.get("hoja_mes_anterior") or hoja_mes_anterior
         ruta_origen_actual = estructura.get("ruta_base") or ruta_origen
-        anio_actual, mes_actual = hoja_mes_nuevo_actual.split("_", 1)
+        anio_actual, mes_abrev = hoja_mes_nuevo_actual.split("_", 1)
+        mes_actual = nombre_mes(mes_abrev)
 
         resultado = reconciliar(
             ledger_vivo=estructura["ledger_vivo"],

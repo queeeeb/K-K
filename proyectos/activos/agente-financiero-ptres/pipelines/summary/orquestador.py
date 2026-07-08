@@ -13,6 +13,7 @@ from pipelines.summary.extract_fuentes import (
     extraer_consulting,
     extraer_ds,
     extraer_engineering,
+    monedas_engineering_facturacion,
     pares_cierre_facturacion,
 )
 from pipelines.summary.historial import todos_los_codigos_conocidos
@@ -67,6 +68,35 @@ def _convertir_a_mxn(provisiones: list[dict], tipos_cambio: dict) -> tuple[list[
     return convertidas, alertas
 
 
+def _aplicar_moneda_engineering(
+    provisiones: list[dict], monedas: dict, tipos_cambio: dict
+) -> tuple[list[dict], list[str]]:
+    alertas = []
+    salida = []
+    for p in provisiones:
+        mxn = p["monto_mxn"]
+        moneda = monedas.get(p["proyecto"])
+        if moneda is None:
+            alertas.append(
+                f"Moneda de {p['proyecto']} (Engineering) no encontrada en Facturación — "
+                "se asume MXN, requiere revisión manual si el proyecto es en otra moneda."
+            )
+            moneda = "MXN"
+        if moneda == "MXN":
+            salida.append({**p, "moneda": "MXN", "monto_original": mxn, "tc": 1})
+            continue
+        tc = tipos_cambio.get(moneda)
+        if not tc:
+            alertas.append(
+                f"Proyecto {p['proyecto']} (Engineering) es {moneda} pero no hay T/C en el tablero "
+                "KPI — se dejó el monto en MXN sin desglosar la moneda original."
+            )
+            salida.append({**p, "moneda": moneda, "monto_original": mxn, "tc": None})
+            continue
+        salida.append({**p, "moneda": moneda, "monto_original": mxn / tc, "tc": tc})
+    return salida, alertas
+
+
 def _separar_sospechosos(provisiones: list[dict]) -> tuple[list[dict], list[str]]:
     validas, alertas = [], []
     for p in provisiones:
@@ -115,6 +145,10 @@ def interpretar_summary(
     rows_engineering = _cargar_rows(raw_files["engineering"], hoja="Hoja1")
     estructura_engineering = interpret_engineering(rows_engineering, client, mes_numero=mes_numero)
     engineering_actuales = extraer_engineering(rows_engineering, estructura_engineering)
+    monedas_eng = monedas_engineering_facturacion(rows_facturacion, estructura_facturacion, tipos_cambio)
+    engineering_convertidas, alertas_engineering = _aplicar_moneda_engineering(
+        engineering_actuales, monedas_eng, tipos_cambio
+    )
 
     rows_consulting = _cargar_rows(raw_files["consulting"], hoja=mes.replace("-", ".") if mes else None)
     estructura_consulting = interpret_consulting(rows_consulting, client)
@@ -123,11 +157,12 @@ def interpretar_summary(
     cierres, alertas_cierre = cruzar_cierres(pares_fact, pares_notas)
     concentrado = leer_concentrado(raw_files["facturacion"])
 
-    provisiones_convertidas, alertas_conversion = _convertir_a_mxn(
-        ds_actuales + engineering_actuales + consulting_actuales, tipos_cambio
+    convertidas_ds_consulting, alertas_conversion = _convertir_a_mxn(
+        ds_actuales + consulting_actuales, tipos_cambio
     )
+    provisiones_convertidas = convertidas_ds_consulting + engineering_convertidas
     provisiones_actuales, alertas_sospechosos = _separar_sospechosos(provisiones_convertidas)
-    alertas = alertas_conversion + alertas_sospechosos + alertas_cierre
+    alertas = alertas_conversion + alertas_engineering + alertas_sospechosos + alertas_cierre
 
     return {
         "ledger_vivo": ledger_vivo,

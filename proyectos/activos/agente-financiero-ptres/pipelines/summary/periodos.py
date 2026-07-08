@@ -10,6 +10,17 @@ _POR_ABREV = {
 }
 
 
+def nombre_mes(valor) -> str:
+    if isinstance(valor, int):
+        return _MESES[valor - 1]
+    clave = str(valor).strip().lower()
+    if clave in _POR_NOMBRE:
+        return _MESES[_POR_NOMBRE[clave] - 1]
+    if clave[:3] in _POR_ABREV:
+        return _MESES[_POR_ABREV[clave[:3]] - 1]
+    return str(valor)
+
+
 def normalizar_periodo(valor, anio_contexto: int | None = None) -> tuple[int, str] | None:
     if isinstance(valor, datetime):
         return (valor.year, _MESES[valor.month - 1])

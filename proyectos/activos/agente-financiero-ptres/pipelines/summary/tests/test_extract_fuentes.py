@@ -2,9 +2,11 @@ from datetime import datetime
 
 from pipelines.summary.extract_fuentes import (
     _cc_desde_codigo,
+    _moneda_por_tc,
     extraer_consulting,
     extraer_ds,
     extraer_engineering,
+    monedas_engineering_facturacion,
     pares_cierre_facturacion,
 )
 
@@ -205,14 +207,14 @@ def test_extraer_engineering_recorre_hasta_el_final_real_del_archivo():
     assert len(resultado) == 20
 
 
-def test_extraer_consulting_suma_las_filas_marcadas_total_honorarios():
+def test_extraer_consulting_toma_total_de_la_fila_cabecera():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total"],
-        ["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", "Gerardo", 500],
-        ["", "", "Total honorarios", 600],
-        ["", "", "Elena", 100],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", 600, "MXN"],
+        ["", "", 100, None],
+        ["", "", "Total honorarios", None],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
@@ -222,29 +224,28 @@ def test_extraer_consulting_suma_las_filas_marcadas_total_honorarios():
     }]
 
 
-def test_extraer_consulting_suma_varias_filas_total_honorarios_del_mismo_bloque():
+def test_extraer_consulting_ignora_filas_de_detalle_del_bloque():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total"],
-        ["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", "Total honorarios", 600],
-        ["", "", "Total honorarios", 400],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["FACTURADO", "26gmx3000.064\nP3 USA\nDandy", 55272.82, "USD"],
+        ["", "", 13125, None],
+        ["", "", 12600, None],
+        ["", "", "Total honorarios con descuento 2%", 34618.5],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
-    assert resultado == [{
-        "proyecto": "26gmx3000.001", "cliente": "Cliente Uno", "nombre_proyecto": "Proyecto Uno",
-        "monto_mxn": 1000, "cc": 3000, "moneda": "MXN",
-    }]
+    assert len(resultado) == 1
+    assert resultado[0]["monto_mxn"] == 55272.82
 
 
 def test_extraer_consulting_lee_moneda_usd_de_la_columna():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total", "$"],
-        ["FACTURADO", "26gmx3000.039\nLEAR\nQuality VSM", "Total honorarios", 14400, "USD"],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["FACTURADO", "26gmx3000.039\nLEAR\nQuality VSM", 14400, "USD"],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2,
-                  "monto_columna": 3, "moneda_columna": 4}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
@@ -254,11 +255,10 @@ def test_extraer_consulting_lee_moneda_usd_de_la_columna():
 
 def test_extraer_consulting_moneda_vacia_default_mxn():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total", "$"],
-        ["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", "Total honorarios", 600, None],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", 600, None],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2,
-                  "monto_columna": 3, "moneda_columna": 4}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
@@ -267,10 +267,10 @@ def test_extraer_consulting_moneda_vacia_default_mxn():
 
 def test_extraer_consulting_ignora_status_distinto_de_provision_o_facturado():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total"],
-        ["CANCELADO", "26gmx3000.099\nCliente X\nProyecto X", "Total honorarios", 999],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["CANCELADO", "26gmx3000.099\nCliente X\nProyecto X", 999, "MXN"],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
@@ -279,10 +279,10 @@ def test_extraer_consulting_ignora_status_distinto_de_provision_o_facturado():
 
 def test_extraer_consulting_incluye_status_facturado():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total"],
-        ["FACTURADO", "24gmx3000.075\nBMW\nProyecto X", "Total honorarios", 665280],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["FACTURADO", "24gmx3000.075\nBMW\nProyecto X", 665280, "MXN"],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
@@ -294,51 +294,35 @@ def test_extraer_consulting_incluye_status_facturado():
 
 def test_extraer_consulting_descripcion_con_varias_lineas_se_une():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total"],
-        ["PROVISION", "25gmx3000.062\nBMW\nPMO support BP30.01\nTEM SLP", "Total honorarios", 100],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["PROVISION", "25gmx3000.062\nBMW\nPMO support BP30.01\nTEM SLP", 100, "MXN"],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
     assert resultado[0]["nombre_proyecto"] == "PMO support BP30.01\nTEM SLP"
 
 
-def test_extraer_consulting_acepta_trigger_con_descuento():
+def test_extraer_consulting_ignora_total_vacio_o_cero():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total"],
-        ["FACTURADO", "26gmx3000.079\nP3 USA\nBorgWarner", "Juan", 4517.92],
-        ["", "", "Total honorarios con descuento 5%", 19269.432],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", 0, "MXN"],
+        ["FACTURADO", "26gmx3000.002\nCliente Dos\nProyecto Dos", None, "MXN"],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
-    assert resultado == [{
-        "proyecto": "26gmx3000.079", "cliente": "P3 USA", "nombre_proyecto": "BorgWarner",
-        "monto_mxn": 19269.432, "cc": 3000, "moneda": "MXN",
-    }]
-
-
-def test_extraer_consulting_no_confunde_otro_texto_con_total_honorarios():
-    rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total"],
-        ["PROVISION", "26gmx3000.001\nCliente Uno\nProyecto Uno", "Gerardo", 500],
-        ["", "", "Subtotal parcial", 999],
-    ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3}
-
-    resultado = extraer_consulting(rows, estructura)
-
-    assert resultado[0]["monto_mxn"] == 0
+    assert resultado == []
 
 
 def test_extraer_consulting_recorta_guion_colgante_del_codigo():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total"],
-        ["PROVISION", "25gmx3000.088 - \nP3 USA\nRIVIAN", "Total honorarios", 100],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["PROVISION", "25gmx3000.088 - \nP3 USA\nRIVIAN", 100, "MXN"],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
@@ -347,11 +331,45 @@ def test_extraer_consulting_recorta_guion_colgante_del_codigo():
 
 def test_extraer_consulting_sin_descripcion_devuelve_nombre_vacio():
     rows = [
-        ["STATUS", "PROJECT", "Consultor", "Total"],
-        ["PROVISION", "26gmx3000.001\nCliente Uno", "Total honorarios", 600],
+        ["STATUS", "PROJECT", "TOTAL", "$"],
+        ["PROVISION", "26gmx3000.001\nCliente Uno", 600, "MXN"],
     ]
-    estructura = {"status_columna": 0, "project_columna": 1, "trigger_columna": 2, "monto_columna": 3}
+    estructura = {"status_columna": 0, "project_columna": 1, "total_columna": 2, "moneda_columna": 3}
 
     resultado = extraer_consulting(rows, estructura)
 
     assert resultado[0]["nombre_proyecto"] == ""
+
+
+def test_moneda_por_tc_uno_es_mxn():
+    assert _moneda_por_tc(1, {"USD": 17.3213, "EUR": 20.2012}) == "MXN"
+
+
+def test_moneda_por_tc_asigna_moneda_mas_cercana():
+    tipos = {"USD": 17.3213, "EUR": 20.2012}
+    assert _moneda_por_tc(17.5118, tipos) == "USD"
+    assert _moneda_por_tc(20.3055, tipos) == "EUR"
+
+
+def test_moneda_por_tc_fuera_de_tolerancia_devuelve_none():
+    assert _moneda_por_tc(50.0, {"USD": 17.3213, "EUR": 20.2012}) is None
+
+
+def test_monedas_engineering_facturacion_deriva_moneda_por_proyecto():
+    rows = [
+        ["Proyecto", "TC"],
+        ["26gmx2000.005 - From Code to Road", 17.5118],
+        ["26gmx2000.006 - NISSAN QA", 20.3055],
+        ["26gmx2000.003 - VW Ingenieria", 1],
+        ["26gmx3000.007 - P3 USA", 17.4948],
+    ]
+    estructura = {"proyecto_columna": 0, "tc_columna": 1}
+    tipos = {"USD": 17.3213, "EUR": 20.2012}
+
+    resultado = monedas_engineering_facturacion(rows, estructura, tipos)
+
+    assert resultado == {
+        "26gmx2000.005": "USD",
+        "26gmx2000.006": "EUR",
+        "26gmx2000.003": "MXN",
+    }
