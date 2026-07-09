@@ -99,7 +99,10 @@ def descargar(archivo: str, usuario_autenticado: str = Depends(get_current_user)
     ruta = os.path.join(reportes_dir, archivo)
     if not os.path.exists(ruta):
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
-    return FileResponse(ruta, filename=archivo, media_type=_MEDIA_TYPES[match.group(1)])
+    return FileResponse(
+        ruta, filename=archivo, media_type=_MEDIA_TYPES[match.group(1)],
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.post("/login")

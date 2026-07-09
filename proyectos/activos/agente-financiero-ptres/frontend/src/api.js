@@ -110,6 +110,7 @@ async function nombrar(pipeline, token, nombres) {
 
 async function descargar(archivo) {
   const res = await fetch(`/descargar/${archivo}`, {
+    cache: 'no-store',
     headers: { Authorization: `Bearer ${_token}` },
   })
   if (!res.ok) throw new Error(`Error ${res.status}`)
