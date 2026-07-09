@@ -1,4 +1,5 @@
 from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill
 
 
 def _duplicate_sheet(wb, origen_titulo: str, nuevo_titulo: str):
@@ -6,6 +7,18 @@ def _duplicate_sheet(wb, origen_titulo: str, nuevo_titulo: str):
     nueva = wb.copy_worksheet(origen)
     nueva.title = nuevo_titulo
     return nueva
+
+
+_SIN_RELLENO = PatternFill(fill_type=None)
+
+
+def _limpiar_formato(sheet) -> None:
+    for row in sheet.iter_rows():
+        for cell in row:
+            cell.fill = _SIN_RELLENO
+            cell.font = Font(name=cell.font.name, size=cell.font.size)
+            if cell.comment is not None:
+                cell.comment = None
 
 
 def _limpiar_seccion_b(sheet) -> None:
@@ -95,6 +108,7 @@ def escribir_hoja_mes(
     _actualizar_formulas_kpi(nueva, ultima_fila)
     alertas = _poblar_facturacion_kpi(nueva, concentrado)
     _poblar_antiguas_por_facturar(nueva, filas, mes_actual)
+    _limpiar_formato(nueva)
 
     wb.save(ruta_destino)
     return alertas
