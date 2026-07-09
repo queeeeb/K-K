@@ -2,20 +2,40 @@
 siguiendo el orden de secciones y el catálogo de labels de la referencia (macro).
 No decide nada — solo vuelca el plan. Ver ESPECIFICACION §2 y §5.
 """
+import os
+
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
+from openpyxl.drawing.image import Image
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 
 from pipelines.pl import referencia
 from pipelines.pl.calculate import COLUMNAS_SALIDA, SEGMENTOS, safe_pct
 
+_ASSETS = os.path.join(os.path.dirname(__file__), "assets")
+LOGO_ORION = os.path.join(_ASSETS, "orion_logo.png")
+LOGO_P3 = os.path.join(_ASSETS, "p3_logo.png")
+
 ETIQUETAS_SEGMENTO = ["BACK OFFICE", "CONSUL OP", "ENGINEERING", "DIGITAL SOLUTIONS"]
-FMT_MONTO = "#,##0.00"
-FMT_PCT = "0.00%"
+
+FUENTE = "Arial"
+FMT_MONTO = '_(* #,##0_);_(* (#,##0);_(* "-"??_);_(@_)'
+FMT_PCT = '_(* 0.0%_);_(* (0.0%);_(* "-"??_);_(@_)'
 
 _CEROS = {col: 0.0 for col in COLUMNAS_SALIDA}
 _FILL_TITULO = PatternFill("solid", fgColor="99CCFF")
 _FILL_HEADER = PatternFill("solid", fgColor="800000")
-_FONT_HEADER = Font(bold=True, color="FFFFFF")
+
+_FONT_BASE = Font(name=FUENTE, size=9)
+_FONT_BOLD = Font(name=FUENTE, size=9, bold=True)
+_FONT_HEADER = Font(name=FUENTE, size=9, bold=True, color="FFFFFF")
+_FONT_TITULO = Font(name=FUENTE, size=12, bold=True)
+
+_LADO = Side(style="thin", color="D9D9D9")
+_BORDE = Border(left=_LADO, right=_LADO, top=_LADO, bottom=_LADO)
+_DERECHA = Alignment(horizontal="right")
+_IZQUIERDA = Alignment(horizontal="left")
+_CENTRO = Alignment(horizontal="center")
 
 
 def _agrupar_por_label(filas) -> dict:
@@ -28,30 +48,26 @@ def _agrupar_por_label(filas) -> dict:
 
 
 def _escribir_fila(sheet, r, label, montos, base, consolidado):
-    sheet.cell(row=r, column=1, value=label)
+    etiqueta = sheet.cell(row=r, column=1, value=label)
+    etiqueta.font = _FONT_BASE
+    etiqueta.alignment = _IZQUIERDA
 
-    def celda(col_monto, col_pct, valor):
-        if valor == 0:
-            sheet.cell(row=r, column=col_monto, value="-")
-            sheet.cell(row=r, column=col_pct, value="-")
-        else:
-            c = sheet.cell(row=r, column=col_monto, value=valor)
-            c.number_format = FMT_MONTO
-
-    def celda_pct(col_pct, valor, base_col):
-        if valor != 0:
-            c = sheet.cell(row=r, column=col_pct, value=safe_pct(valor, base_col))
-            c.number_format = FMT_PCT
+    def par(col_monto, valor, base_col):
+        m = sheet.cell(row=r, column=col_monto, value=valor)
+        m.number_format = FMT_MONTO
+        m.font = _FONT_BASE
+        m.alignment = _DERECHA
+        p = sheet.cell(row=r, column=col_monto + 1, value=safe_pct(valor, base_col))
+        p.number_format = FMT_PCT
+        p.font = _FONT_BASE
+        p.alignment = _DERECHA
 
     if consolidado:
-        celda(2, 3, montos["TOTAL"])
-        celda_pct(3, montos["TOTAL"], base["TOTAL"])
+        par(2, montos["TOTAL"], base["TOTAL"])
     else:
         for i, seg in enumerate(SEGMENTOS):
-            celda(2 + i * 2, 3 + i * 2, montos[seg])
-            celda_pct(3 + i * 2, montos[seg], base[seg])
-        celda(10, 11, montos["TOTAL"])
-        celda_pct(11, montos["TOTAL"], base["TOTAL"])
+            par(2 + i * 2, montos[seg], base[seg])
+        par(10, montos["TOTAL"], base["TOTAL"])
 
 
 def _escribir_hoja(sheet, plan, periodo, consolidado):
@@ -69,25 +85,35 @@ def _escribir_hoja(sheet, plan, periodo, consolidado):
     def titulo(texto):
         nonlocal r
         c = sheet.cell(row=r, column=1, value=texto)
-        c.font = Font(bold=True)
+        c.font = _FONT_BOLD
+        c.alignment = _IZQUIERDA
         r += 1
 
     def barra(label, montos, fill, blanco=False):
         nonlocal r
         _escribir_fila(sheet, r, label, montos, base, consolidado)
+        fuente = _FONT_HEADER if blanco else _FONT_BOLD
         for col in range(1, ncols + 1):
             celda = sheet.cell(row=r, column=col)
             celda.fill = fill
-            celda.font = Font(bold=True, color="FFFFFF" if blanco else "000000")
+            celda.font = fuente
         r += 1
 
     r = 1
-    sheet.cell(row=r, column=1, value="P-TRES GROUP, S.A.P.I. DE C.V.").font = Font(bold=True, size=12)
+    tit = sheet.cell(row=r, column=1, value="P-TRES GROUP, S.A.P.I. DE C.V.")
+    tit.font = _FONT_TITULO
+    tit.alignment = _CENTRO
+    sheet.merge_cells(start_row=r, start_column=1, end_row=r, end_column=ncols)
     r += 1
     sufijo = " — " if consolidado else " by Segment — "
-    sheet.cell(row=r, column=1, value="Profit and Loss Statement" + sufijo + str(periodo))
-    r += 2
+    sub = sheet.cell(row=r, column=1, value="Profit and Loss Statement" + sufijo + str(periodo))
+    sub.font = Font(name=FUENTE, size=10, bold=True)
+    sub.alignment = _CENTRO
+    sheet.merge_cells(start_row=r, start_column=1, end_row=r, end_column=ncols)
+    r += 3
 
+    _agregar_logos(sheet)
+    header_row = r
     sheet.cell(row=r, column=1, value="DESCRIPTION")
     if consolidado:
         sheet.cell(row=r, column=2, value="TOTAL")
@@ -99,8 +125,10 @@ def _escribir_hoja(sheet, plan, periodo, consolidado):
         sheet.cell(row=r, column=10, value="TOTAL")
         sheet.cell(row=r, column=11, value="%")
     for col in range(1, ncols + 1):
-        sheet.cell(row=r, column=col).font = _FONT_HEADER
-        sheet.cell(row=r, column=col).fill = _FILL_HEADER
+        c = sheet.cell(row=r, column=col)
+        c.font = _FONT_HEADER
+        c.fill = _FILL_HEADER
+        c.alignment = _CENTRO
     r += 1
 
     incomes = rubros["INCOMES"]
@@ -117,17 +145,14 @@ def _escribir_hoja(sheet, plan, periodo, consolidado):
     for label in referencia.CATALOGO_ACCRUED_REVENUE:
         fila(label, accrued.get(label, _CEROS))
     barra("Incomes Total", totales["INCOMES"], _FILL_TITULO)
-    r += 1
 
     exp = _agrupar_por_label(rubros["EXPENSES"])
     titulo("Expenses")
     for label in referencia.CATALOGO_EXPENSES:
         fila(label, exp.get(label, _CEROS))
     barra("Expenses Total", totales["EXPENSES"], _FILL_TITULO)
-    r += 1
 
     barra("OPERATING PROFIT (OR LOSS) BEFORE ALLOCATIONS", totales["OPERATING_PROFIT"], _FILL_TITULO)
-    r += 1
 
     if not consolidado:
         titulo("ALLOCATION BO & GMBH SERVICES")
@@ -135,7 +160,6 @@ def _escribir_hoja(sheet, plan, periodo, consolidado):
         fila("  ALLOCATION OF BACK OFFICE - EXPENSES", alloc["back_office"])
         barra("OPERATING PROFIT (OR LOSS) - After Allocation",
               totales["OPERATING_AFTER_ALLOCATION"], _FILL_HEADER, blanco=True)
-        r += 1
 
     for titulo_sec, rubro, total_label, catalogo in [
         ("Other Incomes", "OTHER_INCOMES", "Other Incomes Total", referencia.CATALOGO_OTHER_INCOMES),
@@ -147,16 +171,47 @@ def _escribir_hoja(sheet, plan, periodo, consolidado):
         for label in catalogo:
             fila(label, agrupado.get(label, _CEROS))
         barra(total_label, totales[rubro], _FILL_TITULO)
-        r += 1
 
     barra("NET PROFIT (OR LOSS)", totales["NET_PROFIT"], _FILL_HEADER, blanco=True)
 
+    _aplicar_bordes(sheet, header_row, r - 1, ncols)
+    _ajustar_columnas(sheet, consolidado)
+    sheet.freeze_panes = "A" + str(header_row + 1)
 
-def _ajustar_columnas(sheet) -> None:
-    for col in sheet.columns:
-        col_letter = col[0].column_letter
-        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=0)
-        sheet.column_dimensions[col_letter].width = min(max_len + 4, 55)
+
+def _agregar_logos(sheet) -> None:
+    sheet.row_dimensions[1].height = 16
+    sheet.row_dimensions[2].height = 15
+    sheet.row_dimensions[3].height = 34
+    sheet.row_dimensions[4].height = 34
+
+    orion = Image(LOGO_ORION)
+    orion.width, orion.height = 108, 32
+    orion.anchor = "A1"
+    sheet.add_image(orion)
+
+    p3 = Image(LOGO_P3)
+    p3.width, p3.height = 60, 65
+    p3.anchor = "A3"
+    sheet.add_image(p3)
+
+
+def _aplicar_bordes(sheet, fila_ini, fila_fin, ncols) -> None:
+    for row in range(fila_ini, fila_fin + 1):
+        for col in range(1, ncols + 1):
+            sheet.cell(row=row, column=col).border = _BORDE
+
+
+def _ajustar_columnas(sheet, consolidado) -> None:
+    max_len = max(
+        (len(str(sheet.cell(row=r, column=1).value)) for r in range(1, sheet.max_row + 1)
+         if sheet.cell(row=r, column=1).value is not None),
+        default=0,
+    )
+    sheet.column_dimensions["A"].width = min(max_len + 2, 46)
+    ncols = 3 if consolidado else 11
+    for col in range(2, ncols + 1):
+        sheet.column_dimensions[get_column_letter(col)].width = 14 if col % 2 == 0 else 8
 
 
 def escribir_pl(ruta_destino: str, plan: dict, periodo: str) -> None:
@@ -164,10 +219,8 @@ def escribir_pl(ruta_destino: str, plan: dict, periodo: str) -> None:
     consolidado = wb.active
     consolidado.title = "CONSOLIDATED"
     _escribir_hoja(consolidado, plan, periodo, consolidado=True)
-    _ajustar_columnas(consolidado)
 
     por_segmento = wb.create_sheet("BY SEGMENT")
     _escribir_hoja(por_segmento, plan, periodo, consolidado=False)
-    _ajustar_columnas(por_segmento)
 
     wb.save(ruta_destino)
