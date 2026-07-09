@@ -40,10 +40,14 @@ def _limpiar_seccion_b(sheet) -> None:
 _COL_KPI_POR_UNIDAD = {3000: 9, 2000: 10, 7000: 11}
 
 
-def _actualizar_formulas_kpi(sheet, ultima_fila: int) -> None:
+def _actualizar_formulas_kpi(sheet, ultima_fila: int, mes_actual: str) -> None:
     for col, cc in ((9, 3000), (10, 2000), (11, 7000)):
+        # Fila 2 (Provisiones) suma solo las del mes tratado: el filtro por
+        # Periodo excluye las provisiones arrastradas de meses anteriores, que
+        # se contabilizan aparte en la fila 11 (Prov. Antiguas por facturar).
         sheet.cell(row=2, column=col, value=(
-            f'=SUMIFS(L13:L{ultima_fila},E13:E{ultima_fila},{cc},B13:B{ultima_fila},"Provision")'
+            f'=SUMIFS(L13:L{ultima_fila},E13:E{ultima_fila},{cc},'
+            f'B13:B{ultima_fila},"Provision",D13:D{ultima_fila},"{mes_actual}")'
         ))
         sheet.cell(row=4, column=col, value=(
             f'=SUMIF(E13:Q{ultima_fila},{cc},Q13:Q{ultima_fila})'
@@ -103,7 +107,7 @@ def escribir_hoja_mes(
             nueva.cell(row=offset, column=col, value=valor)
 
     ultima_fila = 12 + len(filas) if filas else 13
-    _actualizar_formulas_kpi(nueva, ultima_fila)
+    _actualizar_formulas_kpi(nueva, ultima_fila, mes_actual)
     alertas = _poblar_facturacion_kpi(nueva, concentrado)
     _poblar_antiguas_por_facturar(nueva, filas, mes_actual)
     _limpiar_formato(nueva)

@@ -64,17 +64,36 @@ def test_escribir_hoja_mes_actualiza_rango_de_formulas_kpi(tmp_path):
     ultima_fila = 12 + len(filas)
 
     assert nueva.cell(row=2, column=9).value == (
-        f'=SUMIFS(L13:L{ultima_fila},E13:E{ultima_fila},3000,B13:B{ultima_fila},"Provision")'
+        f'=SUMIFS(L13:L{ultima_fila},E13:E{ultima_fila},3000,B13:B{ultima_fila},"Provision",D13:D{ultima_fila},"Mayo")'
     )
     assert nueva.cell(row=2, column=10).value == (
-        f'=SUMIFS(L13:L{ultima_fila},E13:E{ultima_fila},2000,B13:B{ultima_fila},"Provision")'
+        f'=SUMIFS(L13:L{ultima_fila},E13:E{ultima_fila},2000,B13:B{ultima_fila},"Provision",D13:D{ultima_fila},"Mayo")'
     )
     assert nueva.cell(row=2, column=11).value == (
-        f'=SUMIFS(L13:L{ultima_fila},E13:E{ultima_fila},7000,B13:B{ultima_fila},"Provision")'
+        f'=SUMIFS(L13:L{ultima_fila},E13:E{ultima_fila},7000,B13:B{ultima_fila},"Provision",D13:D{ultima_fila},"Mayo")'
     )
     assert nueva.cell(row=4, column=9).value == f'=SUMIF(E13:Q{ultima_fila},3000,Q13:Q{ultima_fila})'
     assert nueva.cell(row=4, column=10).value == f'=SUMIF(E13:Q{ultima_fila},2000,Q13:Q{ultima_fila})'
     assert nueva.cell(row=4, column=11).value == f'=SUMIF(E13:Q{ultima_fila},7000,Q13:Q{ultima_fila})'
+
+
+def test_fila_2_filtra_por_periodo_del_mes_actual(tmp_path):
+    """La fila 2 (Provisiones) solo suma provisiones del mes tratado, no las
+    arrastradas de meses anteriores (esas van en la fila 11)."""
+    destino = tmp_path / "summary_mayo.xlsm"
+    filas = [
+        ["Q-1", "Provision", 2026, "Mayo", 3000, "Cli", "Nom", "26gmx3000.001",
+         "MXN", 1000, 1, 1000, 0, 1000, 0, 0, 1000, "", ""],
+    ]
+
+    _escribir(destino, filas, mes_actual="Mayo")
+
+    nueva = load_workbook(destino)["2026_May"]
+    ultima_fila = 12 + len(filas)
+    assert nueva.cell(row=2, column=9).value == (
+        f'=SUMIFS(L13:L{ultima_fila},E13:E{ultima_fila},3000,'
+        f'B13:B{ultima_fila},"Provision",D13:D{ultima_fila},"Mayo")'
+    )
 
 
 def test_escribir_hoja_mes_sin_filas_usa_rango_seguro(tmp_path):
@@ -84,7 +103,7 @@ def test_escribir_hoja_mes_sin_filas_usa_rango_seguro(tmp_path):
 
     wb = load_workbook(destino)
     nueva = wb["2026_May"]
-    assert nueva.cell(row=2, column=9).value == '=SUMIFS(L13:L13,E13:E13,3000,B13:B13,"Provision")'
+    assert nueva.cell(row=2, column=9).value == '=SUMIFS(L13:L13,E13:E13,3000,B13:B13,"Provision",D13:D13,"Mayo")'
 
 
 def test_escribir_hoja_mes_preserva_hoja_anterior(tmp_path):
