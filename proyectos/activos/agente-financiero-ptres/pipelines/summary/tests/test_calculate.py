@@ -16,22 +16,22 @@ def test_cruzar_cierres_par_en_ambas_sin_alerta():
     assert alertas == []
 
 
-def test_cruzar_cierres_par_solo_facturacion_cierra_con_alerta():
+def test_cruzar_cierres_par_solo_facturacion_cierra_sin_alerta():
     cierres, alertas = cruzar_cierres(
         pares_facturacion=[("26gmx3000.001", 2026, "Abril")],
         pares_notas_ds=[],
     )
     assert cierres[0]["origen"] == "facturacion"
-    assert any("solo" in a.lower() and "facturaci" in a.lower() for a in alertas)
+    assert alertas == []
 
 
-def test_cruzar_cierres_par_solo_notas_ds_cierra_con_alerta():
+def test_cruzar_cierres_par_solo_notas_ds_cierra_sin_alerta():
     cierres, alertas = cruzar_cierres(
         pares_facturacion=[],
         pares_notas_ds=[("26gmx7000.010", 2026, "Marzo")],
     )
     assert cierres[0]["origen"] == "notas_ds"
-    assert any("solo" in a.lower() and "notas" in a.lower() for a in alertas)
+    assert alertas == []
 
 
 def test_extraer_codigo_limpio():
@@ -102,13 +102,27 @@ def test_reconciliar_cierra_fila_por_codigo_y_periodo():
     assert resultado["mantenidas"][0]["periodo"] == "Abril"
 
 
-def test_reconciliar_cierre_a_fila_inexistente_alerta_sin_tocar():
+def test_reconciliar_cierre_codigo_ausente_es_informativo():
     ledger = [_fila_ledger("26gmx3000.001", 2026, "Marzo")]
     cierres = [{"codigo": "26gmx9999.999", "anio": 2026, "mes": "Marzo", "origen": "facturacion"}]
     resultado = reconciliar(ledger, cierres, provisiones_actuales=[])
     assert resultado["cerradas"] == []
     assert len(resultado["mantenidas"]) == 1
-    assert any("26gmx9999.999" in a for a in resultado["alertas"])
+    alerta = next(a for a in resultado["alertas"] if "26gmx9999.999" in a)
+    assert "sin provisión previa" in alerta
+    assert "informativo" in alerta
+    assert "requiere revisión manual" not in alerta
+
+
+def test_reconciliar_cierre_codigo_presente_sin_casar_periodo_requiere_revision():
+    ledger = [_fila_ledger("26gmx3000.001", 2026, "Marzo")]
+    cierres = [{"codigo": "26gmx3000.001", "anio": 2026, "mes": "Abril", "origen": "facturacion"}]
+    resultado = reconciliar(ledger, cierres, provisiones_actuales=[])
+    assert resultado["cerradas"] == []
+    assert len(resultado["mantenidas"]) == 1
+    alerta = next(a for a in resultado["alertas"] if "26gmx3000.001" in a)
+    assert "no casó" in alerta
+    assert "requiere revisión manual" in alerta
 
 
 def test_reconciliar_provision_actual_es_fila_nueva_aunque_codigo_exista():

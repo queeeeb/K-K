@@ -39,10 +39,8 @@ def cruzar_cierres(
             origen = "ambas"
         elif en_fact:
             origen = "facturacion"
-            alertas.append(f"Cierre de {codigo} ({mes} {anio}) detectado solo en Facturación.")
         else:
             origen = "notas_ds"
-            alertas.append(f"Cierre de {codigo} ({mes} {anio}) detectado solo en Notas DS.")
         cierres.append({"codigo": codigo, "anio": anio, "mes": mes, "origen": origen})
     return cierres, alertas
 
@@ -69,13 +67,20 @@ def reconciliar(
         else:
             mantenidas.append(fila)
 
+    codigos_en_ledger = {fila["proyecto"] for fila in ledger_vivo}
     for clave, cierre in cierres_por_clave.items():
         if clave not in claves_aplicadas:
             codigo, anio, mes = clave
-            alertas.append(
-                f"Cierre de {codigo} ({mes} {anio}, origen {cierre['origen']}) no encontró "
-                "fila abierta en el ledger — no se aplicó, requiere revisión manual."
-            )
+            if codigo in codigos_en_ledger:
+                alertas.append(
+                    f"Cierre de {codigo} ({mes} {anio}, origen {cierre['origen']}) no casó "
+                    "año/periodo con la provisión viva de ese código — requiere revisión manual."
+                )
+            else:
+                alertas.append(
+                    f"Factura de {codigo} ({mes} {anio}, origen {cierre['origen']}) sin provisión "
+                    "previa en el ledger — informativo, no se cierra nada."
+                )
 
     nuevas = [
         {**p, "codigo_nuevo": p["proyecto"] not in codigos_conocidos}
