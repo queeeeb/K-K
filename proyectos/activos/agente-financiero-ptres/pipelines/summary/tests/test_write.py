@@ -7,7 +7,7 @@ from pipelines.summary.write import escribir_hoja_mes
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
-def _escribir(destino, filas, concentrado=None, mes_actual="Mayo", tipos_cambio=None):
+def _escribir(destino, filas, concentrado=None, mes_actual="Mayo"):
     return escribir_hoja_mes(
         ruta_origen=str(FIXTURES_DIR / "summary_abril.xlsm"),
         ruta_destino=str(destino),
@@ -16,16 +16,16 @@ def _escribir(destino, filas, concentrado=None, mes_actual="Mayo", tipos_cambio=
         filas=filas,
         concentrado=concentrado if concentrado is not None else {},
         mes_actual=mes_actual,
-        tipos_cambio=tipos_cambio,
     )
 
 
-def test_write_escribe_tipos_cambio_en_tablero(tmp_path):
+def test_write_borra_bloque_tipos_cambio(tmp_path):
     destino = tmp_path / "out.xlsm"
-    _escribir(destino, [], tipos_cambio={"USD": 18.5, "EUR": 20.1})
+    _escribir(destino, [])
     ws = load_workbook(destino, data_only=False, keep_vba=True)["2026_May"]
-    assert ws.cell(row=6, column=3).value == 18.5
-    assert ws.cell(row=7, column=3).value == 20.1
+    for row in range(6, 9):
+        for col in range(2, 5):
+            assert ws.cell(row=row, column=col).value is None
 
 
 def test_escribir_hoja_mes_no_toca_columna_a_del_kpi(tmp_path):

@@ -6,19 +6,29 @@ def _duplicate_sheet(wb, origen_titulo: str, nuevo_titulo: str):
     origen = wb[origen_titulo]
     nueva = wb.copy_worksheet(origen)
     nueva.title = nuevo_titulo
+    nueva.freeze_panes = origen.freeze_panes
     return nueva
 
 
 _SIN_RELLENO = PatternFill(fill_type=None)
+_FILA_ENCABEZADOS = 12
 
 
 def _limpiar_formato(sheet) -> None:
     for row in sheet.iter_rows():
         for cell in row:
+            if cell.row == _FILA_ENCABEZADOS:
+                continue
             cell.fill = _SIN_RELLENO
             cell.font = Font(name=cell.font.name, size=cell.font.size)
             if cell.comment is not None:
                 cell.comment = None
+
+
+def _limpiar_bloque_tc(sheet) -> None:
+    for row in range(6, 9):
+        for col in range(2, 5):
+            sheet.cell(row=row, column=col).value = None
 
 
 def _limpiar_seccion_b(sheet) -> None:
@@ -43,8 +53,8 @@ def _actualizar_formulas_kpi(sheet, ultima_fila: int) -> None:
 def _poblar_facturacion_kpi(sheet, concentrado: dict) -> list[str]:
     if not concentrado:
         for col in _COL_KPI_POR_UNIDAD.values():
-            sheet.cell(row=3, column=col, value=None)
-            sheet.cell(row=5, column=col, value=None)
+            sheet.cell(row=3, column=col).value = None
+            sheet.cell(row=5, column=col).value = None
         return ["Hoja Concentrado ausente en Facturación — filas 3 y 5 del KPI quedaron en blanco."]
     for unidad, col in _COL_KPI_POR_UNIDAD.items():
         datos = concentrado.get(unidad, {})
@@ -66,16 +76,6 @@ def _poblar_antiguas_por_facturar(sheet, filas: list[list], mes_actual: str) -> 
         sheet.cell(row=11, column=col, value=suma[unidad] or 0)
 
 
-_FILA_TC = {"USD": 6, "EUR": 7, "CAD": 8}
-
-
-def _escribir_tipos_cambio(sheet, tipos_cambio: dict) -> None:
-    for moneda, fila in _FILA_TC.items():
-        valor = tipos_cambio.get(moneda)
-        if valor is not None:
-            sheet.cell(row=fila, column=3, value=valor)
-
-
 def escribir_hoja_mes(
     ruta_origen: str,
     ruta_destino: str,
@@ -84,13 +84,11 @@ def escribir_hoja_mes(
     filas: list[list],
     concentrado: dict,
     mes_actual: str,
-    tipos_cambio: dict | None = None,
 ) -> list[str]:
     wb = load_workbook(ruta_origen, keep_vba=ruta_origen.endswith(".xlsm"))
     nueva = _duplicate_sheet(wb, hoja_mes_anterior, hoja_mes_nuevo)
     _limpiar_seccion_b(nueva)
-    if tipos_cambio:
-        _escribir_tipos_cambio(nueva, tipos_cambio)
+    _limpiar_bloque_tc(nueva)
 
     encabezados = [
         "Cotizacion", "Cierre", "Año", "Periodo", "CC", "Cliente", "Nombre Proyecto",
