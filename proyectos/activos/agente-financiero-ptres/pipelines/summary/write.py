@@ -6,7 +6,7 @@ def _duplicate_sheet(wb, origen_titulo: str, nuevo_titulo: str):
     origen = wb[origen_titulo]
     nueva = wb.copy_worksheet(origen)
     nueva.title = nuevo_titulo
-    nueva.freeze_panes = origen.freeze_panes
+    nueva.freeze_panes = f"A{_FILA_ENCABEZADOS + 1}"
     return nueva
 
 
