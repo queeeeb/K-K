@@ -59,11 +59,16 @@ def _poblar_facturacion_kpi(sheet, concentrado: dict) -> list[str]:
         for col in _COL_KPI_POR_UNIDAD.values():
             sheet.cell(row=3, column=col).value = None
             sheet.cell(row=5, column=col).value = None
-        return ["Hoja Concentrado ausente en Facturación — filas 3 y 5 del KPI quedaron en blanco."]
+            sheet.cell(row=6, column=col).value = None
+        return ["Hoja Concentrado ausente en Facturación — filas 3, 5 y 6 del KPI quedaron en blanco."]
+    # El concentrado pasa por la DB como JSON entre /procesar y /confirmar, que
+    # convierte las claves enteras (3000, 7000, 2000) a string — normalizarlas.
+    concentrado = {int(unidad): datos for unidad, datos in concentrado.items()}
     for unidad, col in _COL_KPI_POR_UNIDAD.items():
         datos = concentrado.get(unidad, {})
         sheet.cell(row=3, column=col, value=datos.get("facturado"))
         sheet.cell(row=5, column=col, value=datos.get("canceladas"))
+        sheet.cell(row=6, column=col, value=datos.get("nc"))
     return []
 
 

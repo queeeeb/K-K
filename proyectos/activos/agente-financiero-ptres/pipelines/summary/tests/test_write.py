@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -122,14 +123,32 @@ def _fila(cierre, cc, periodo, monto, proyecto="26gmx3000.001"):
 
 
 def test_write_puebla_kpi_filas_3_y_5_desde_concentrado(tmp_path):
-    concentrado = {3000: {"facturado": 6050968.44, "canceladas": 552468.62},
-                   2000: {"facturado": 1784778.64, "canceladas": 0},
-                   7000: {"facturado": 5871693.18, "canceladas": 298668.65}}
+    concentrado = {3000: {"facturado": 6050968.44, "canceladas": 552468.62, "nc": 12000},
+                   2000: {"facturado": 1784778.64, "canceladas": 0, "nc": 0},
+                   7000: {"facturado": 5871693.18, "canceladas": 298668.65, "nc": 0}}
     destino = tmp_path / "out.xlsm"
     _escribir(destino, [_fila("Provision", 3000, "Mayo", 1000)], concentrado=concentrado)
     ws = load_workbook(destino, data_only=False, keep_vba=True)["2026_May"]
     assert ws.cell(row=3, column=9).value == 6050968.44
     assert ws.cell(row=5, column=9).value == 552468.62
+    assert ws.cell(row=6, column=9).value == 12000
+    assert ws.cell(row=3, column=11).value == 5871693.18
+
+
+def test_write_puebla_kpi_con_concentrado_tras_round_trip_json(tmp_path):
+    """El concentrado pasa por la DB como JSON entre /procesar y /confirmar, lo
+    que convierte las claves int a string. El KPI debe poblarse igual."""
+    concentrado = {3000: {"facturado": 6050968.44, "canceladas": 552468.62, "nc": 12000},
+                   2000: {"facturado": 1784778.64, "canceladas": 0, "nc": 0},
+                   7000: {"facturado": 5871693.18, "canceladas": 298668.65, "nc": 0}}
+    concentrado = json.loads(json.dumps(concentrado))
+    assert list(concentrado.keys()) == ["3000", "2000", "7000"]
+    destino = tmp_path / "out.xlsm"
+    _escribir(destino, [_fila("Provision", 3000, "Mayo", 1000)], concentrado=concentrado)
+    ws = load_workbook(destino, data_only=False, keep_vba=True)["2026_May"]
+    assert ws.cell(row=3, column=9).value == 6050968.44
+    assert ws.cell(row=5, column=9).value == 552468.62
+    assert ws.cell(row=6, column=9).value == 12000
     assert ws.cell(row=3, column=11).value == 5871693.18
 
 
@@ -138,6 +157,7 @@ def test_write_concentrado_ausente_deja_blanco_y_alerta(tmp_path):
     alertas = _escribir(destino, [_fila("Provision", 3000, "Mayo", 1000)], concentrado={})
     ws = load_workbook(destino, data_only=False, keep_vba=True)["2026_May"]
     assert ws.cell(row=3, column=9).value is None
+    assert ws.cell(row=6, column=9).value is None
     assert any("Concentrado" in a for a in alertas)
 
 

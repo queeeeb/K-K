@@ -12,5 +12,6 @@ def leer_concentrado(ruta: str) -> dict:
     for unidad, col_valor in _COLUMNAS_UNIDAD.items():
         facturado = ws[f"{col_valor}2"].value or 0
         canceladas = ws[f"{col_valor}3"].value or 0
-        resultado[unidad] = {"facturado": facturado, "canceladas": canceladas}
+        nc = ws[f"{col_valor}5"].value or 0
+        resultado[unidad] = {"facturado": facturado, "canceladas": canceladas, "nc": nc}
     return resultado

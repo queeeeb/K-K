@@ -52,7 +52,7 @@ def test_interpretar_summary_combina_las_4_fuentes():
     assert resultado["cierres"] == [
         {"codigo": "26gmx3000.001", "anio": 2026, "mes": "Abril", "origen": "facturacion"},
     ]
-    assert resultado["concentrado"][3000] == {"facturado": 1000, "canceladas": 100}
+    assert resultado["concentrado"][3000] == {"facturado": 1000, "canceladas": 100, "nc": 0}
 
     proyectos_actuales = {p["proyecto"] for p in resultado["provisiones_actuales"]}
     assert proyectos_actuales == {"26gmx7000.002", "26gmx2000.005", "26gmx3000.001"}
