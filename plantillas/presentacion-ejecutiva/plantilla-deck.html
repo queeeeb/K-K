@@ -1,0 +1,631 @@
+<!--
+  ============================================================================
+  PLANTILLA DE PRESENTACIÓN EJECUTIVA — Estilo "Orión by K&K"
+  ============================================================================
+  Deck de venta autocontenido (un solo archivo). Diseño enterprise financiero:
+  deep-space navy + dorado, constelación animada, cifras en mono tabular.
+
+  CÓMO USARLA
+    1. Copia este archivo a la carpeta del proyecto/cliente.
+    2. Reemplaza cada marcador {{...}} por el texto real.
+    3. Ábrelo en el navegador, o publícalo como Artefacto en claude.ai.
+
+  ARCO DE VENTA (orden de las secciones)
+    Portada → Problema → Solución (qué es) → Confianza → Seguridad →
+    Beneficios → Escalabilidad → Cierre
+    Puedes quitar/duplicar secciones (p. ej. Precio, Roadmap) copiando un
+    bloque <section> y sumando su id al arreglo `ids` del <script> final.
+
+  CONFIDENCIALIDAD (regla de K&K)
+    Ningún dato real de cliente (montos, nombres de proyecto, archivos) va en
+    el repo. El deck FINAL con datos reales se entrega como artefacto/archivo
+    aparte, NO se commitea. Esta plantilla solo lleva marcadores {{...}}.
+  ============================================================================
+-->
+<title>Presentación Ejecutiva — {{PRODUCTO}} by K&K</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ---------- Tokens ---------- */
+  :root {
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-num: ui-monospace, "Cascadia Code", "Segoe UI Mono", "JetBrains Mono", Consolas, monospace;
+
+    /* Marca (constantes en ambos temas) */
+    --navy-900: #0F172A;
+    --navy-950: #060C18;
+    --navy-800: #101F36;
+    --navy-700: #1D3050;
+    --gold: #F59E0B;
+    --gold-400: #FBBF24;
+    --gold-halo: #FFCE8A;
+
+    /* Semánticos */
+    --emerald: #059669;
+    --rose: #E11D48;
+    --blue: #2563EB;
+
+    /* Superficie de contenido — tema claro (default) */
+    --bg: #F1F5F9;
+    --surface: #FFFFFF;
+    --surface-2: #F8FAFC;
+    --border: #E2E8F0;
+    --ink: #0F172A;
+    --ink-2: #334155;
+    --muted: #64748B;
+    --faint: #94A3B8;
+    --accent-ink: #B45309;      /* dorado legible sobre claro */
+    --card-shadow: 0 1px 2px rgba(15,23,42,.06), 0 8px 24px -12px rgba(15,23,42,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1220;
+      --surface: #121C2E;
+      --surface-2: #0F1829;
+      --border: #24334A;
+      --ink: #E8EEF7;
+      --ink-2: #C0CCDE;
+      --muted: #8EA0BA;
+      --faint: #64748B;
+      --accent-ink: var(--gold-400);
+      --card-shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F1F5F9; --surface: #FFFFFF; --surface-2: #F8FAFC; --border: #E2E8F0;
+    --ink: #0F172A; --ink-2: #334155; --muted: #64748B; --faint: #94A3B8;
+    --accent-ink: #B45309;
+    --card-shadow: 0 1px 2px rgba(15,23,42,.06), 0 8px 24px -12px rgba(15,23,42,.18);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1220; --surface: #121C2E; --surface-2: #0F1829; --border: #24334A;
+    --ink: #E8EEF7; --ink-2: #C0CCDE; --muted: #8EA0BA; --faint: #64748B;
+    --accent-ink: var(--gold-400);
+    --card-shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px -14px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; font-family: var(--font-ui); background: var(--bg); color: var(--ink);
+    -webkit-font-smoothing: antialiased; line-height: 1.5;
+  }
+  .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Slide scaffolding ---------- */
+  .slide {
+    position: relative; min-height: 100svh; display: flex; flex-direction: column;
+    justify-content: center; padding: clamp(2.5rem, 6vw, 6rem) clamp(1.25rem, 6vw, 6rem);
+    scroll-margin-top: 0; overflow: hidden;
+  }
+  .slide__inner { width: 100%; max-width: 1120px; margin: 0 auto; }
+  .slide--content { background: var(--bg); color: var(--ink); }
+  .slide--dark { background:
+      radial-gradient(1200px 700px at 78% -10%, rgba(245,158,11,.10), transparent 60%),
+      radial-gradient(1000px 800px at 0% 110%, rgba(59,111,212,.12), transparent 55%),
+      linear-gradient(160deg, var(--navy-800), var(--navy-950));
+    color: #E8EEF7;
+  }
+  .slide--dark .muted, .slide--dark .eyebrow { color: #9FB4D6; }
+
+  /* Eyebrow / slide index */
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: .6rem; font-size: .78rem;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 600;
+    margin: 0 0 1.1rem;
+  }
+  .eyebrow .idx { font-family: var(--font-num); color: var(--gold); }
+  .eyebrow .idx::after { content: ""; display: inline-block; width: 28px; height: 1px;
+    background: var(--gold); margin-left: .6rem; vertical-align: middle; opacity: .6; }
+
+  h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.08; letter-spacing: -.02em; }
+  h1 { font-size: clamp(2.4rem, 6.2vw, 4.6rem); font-weight: 700; }
+  h2 { font-size: clamp(1.9rem, 4.4vw, 3.1rem); font-weight: 700; }
+  h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); font-weight: 650; letter-spacing: -.01em; }
+  .lead { font-size: clamp(1.05rem, 1.7vw, 1.35rem); color: var(--ink-2); max-width: 62ch; }
+  .slide--dark .lead { color: #C6D3E6; }
+  p { margin: 0; }
+  .stack > * + * { margin-top: 1.1rem; }
+
+  .gold { color: var(--accent-ink); }
+  .slide--dark .gold { color: var(--gold-400); }
+  strong { font-weight: 650; color: var(--ink); }
+  .slide--dark strong { color: #FFFFFF; }
+
+  /* ---------- Hero ---------- */
+  #sky { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hero__content { position: relative; z-index: 2; }
+  .brand {
+    display: inline-flex; align-items: center; gap: .8rem; margin-bottom: clamp(2rem,5vw,3rem);
+  }
+  .monogram {
+    width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center;
+    background: var(--navy-900); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 6px 20px -6px rgba(0,0,0,.6);
+  }
+  .monogram svg { width: 26px; height: 26px; }
+  .brand__name { font-weight: 700; letter-spacing: -.01em; font-size: 1.05rem; color: #fff; }
+  .brand__by { display: block; font-size: .72rem; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--gold-400); font-weight: 600; }
+  .hero h1 { color: #fff; max-width: 18ch; }
+  .hero h1 em { font-style: normal; color: var(--gold-400); }
+  .hero .lead { margin-top: 1.6rem; color: #C6D3E6; }
+  .hero__meta {
+    display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 2.2rem;
+  }
+  .chip {
+    font-size: .82rem; font-weight: 550; padding: .42rem .8rem; border-radius: 999px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); color: #D9E2F0;
+    backdrop-filter: blur(4px);
+  }
+  .chip b { color: var(--gold-400); font-weight: 700; }
+  .scrollcue { position: absolute; left: 50%; bottom: 1.4rem; transform: translateX(-50%);
+    z-index: 2; color: #9FB4D6; font-size: .74rem; letter-spacing: .14em; text-transform: uppercase;
+    display: flex; flex-direction: column; align-items: center; gap: .4rem; }
+  .scrollcue span { width: 1px; height: 26px; background: linear-gradient(var(--gold-400), transparent);
+    animation: cue 1.8s ease-in-out infinite; }
+  @keyframes cue { 0%,100%{opacity:.3; transform:scaleY(.6);} 50%{opacity:1; transform:scaleY(1);} }
+  @media (prefers-reduced-motion: reduce) { .scrollcue span { animation: none; } }
+
+  /* ---------- Cards / grids ---------- */
+  .grid { display: grid; gap: 1rem; }
+  .cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .cols-4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 860px) { .cols-2, .cols-3, .cols-4 { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) { .cols-4.keep2, .cols-3.keep2 { grid-template-columns: 1fr 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 1.35rem 1.4rem; box-shadow: var(--card-shadow);
+  }
+  .card h3 { margin-bottom: .45rem; }
+  .card p { color: var(--muted); font-size: .96rem; }
+  .card--pain { border-left: 3px solid var(--rose); }
+  .card--dark { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); box-shadow: none; }
+  .card--dark h3 { color: #fff; } .card--dark p { color: #B7C4D8; }
+
+  .ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+    margin-bottom: .9rem; }
+  .ico svg { width: 21px; height: 21px; stroke-width: 1.8; }
+  .ico--rose { background: rgba(225,29,72,.1); color: var(--rose); }
+  .ico--gold { background: rgba(245,158,11,.12); color: var(--accent-ink); }
+  .ico--emerald { background: rgba(5,150,105,.1); color: var(--emerald); }
+  .ico--blue { background: rgba(37,99,235,.1); color: var(--blue); }
+  .slide--dark .ico--gold { background: rgba(251,191,36,.14); color: var(--gold-400); }
+
+  /* Stat tiles */
+  .stat { display: flex; flex-direction: column; gap: .3rem; }
+  .stat__num { font-family: var(--font-num); font-weight: 600; letter-spacing: -.02em;
+    font-size: clamp(2rem, 4vw, 2.9rem); line-height: 1; }
+  .stat__lbl { font-size: .9rem; color: var(--muted); }
+  .stat--gold .stat__num { color: var(--accent-ink); }
+  .slide--dark .stat--gold .stat__num { color: var(--gold-400); }
+  .stat--emerald .stat__num { color: var(--emerald); }
+  .stat__note { font-size: .78rem; color: var(--faint); }
+
+  /* ---------- Flow diagram ---------- */
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; align-items: stretch; }
+  @media (max-width: 860px) { .flow { grid-template-columns: 1fr; } }
+  .step {
+    position: relative; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.15rem; box-shadow: var(--card-shadow);
+  }
+  .step__k { font-family: var(--font-num); font-size: .8rem; color: var(--gold); font-weight: 600; }
+  .step h3 { margin: .5rem 0 .35rem; font-size: 1.02rem; }
+  .step p { font-size: .88rem; color: var(--muted); }
+  .step__tag { display: inline-block; margin-top: .7rem; font-size: .72rem; font-weight: 650;
+    letter-spacing: .04em; text-transform: uppercase; padding: .22rem .55rem; border-radius: 6px; }
+  .tag--ai { background: rgba(37,99,235,.1); color: var(--blue); }
+  .tag--code { background: rgba(5,150,105,.1); color: var(--emerald); }
+  .tag--human { background: rgba(245,158,11,.12); color: var(--accent-ink); }
+  .slide--dark .step { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.1); box-shadow: none; }
+  .slide--dark .step h3 { color: #fff; } .slide--dark .step p { color: #B7C4D8; }
+  .slide--dark .tag--human { color: var(--gold-400); }
+
+  .banner {
+    margin-top: 1.1rem; display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+    background: var(--surface-2); border: 1px dashed var(--border); border-radius: 12px;
+    padding: .9rem 1.1rem; font-size: .95rem; color: var(--ink-2);
+  }
+  .slide--dark .banner { background: rgba(245,158,11,.07); border-color: rgba(245,158,11,.28); color:#D9E2F0; }
+  .banner .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--gold); flex: none; }
+
+  /* two column split */
+  .split { display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(1.5rem, 4vw, 3.5rem); align-items: center; }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+
+  ul.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: .8rem; }
+  ul.checks li { display: flex; gap: .7rem; align-items: flex-start; }
+  ul.checks svg { flex: none; width: 20px; height: 20px; margin-top: .15rem; color: var(--emerald); }
+  ul.checks b { color: var(--ink); } .slide--dark ul.checks b { color: #fff; }
+  ul.checks span { color: var(--muted); }
+  .slide--dark ul.checks span { color:#B7C4D8; }
+
+  /* Escalabilidad — core + módulos */
+  .core {
+    background: var(--navy-900); color: #fff; border-radius: 16px; padding: 1.4rem;
+    display: flex; flex-direction: column; gap: .35rem; box-shadow: 0 10px 30px -14px rgba(0,0,0,.5);
+    border: 1px solid rgba(255,255,255,.08);
+  }
+  .core .k { font-family: var(--font-num); color: var(--gold-400); font-size: .8rem; letter-spacing:.05em; }
+  .core h3 { color: #fff; }
+  .core p { color: #AEBED4; font-size: .9rem; }
+  .pipes { display: grid; grid-template-columns: repeat(4,1fr); gap: .8rem; margin-top: 1rem; }
+  @media (max-width: 860px){ .pipes { grid-template-columns: 1fr 1fr; } }
+  .pipe { border: 1px solid var(--border); border-radius: 12px; padding: 1rem; background: var(--surface);
+    box-shadow: var(--card-shadow); }
+  .slide--dark .pipe { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.1); box-shadow:none; }
+  .pipe h4 { margin: 0 0 .35rem; font-size: 1rem; }
+  .pipe p { margin: 0; font-size: .82rem; color: var(--muted); }
+  .pipe .badge { font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    padding: .18rem .5rem; border-radius: 999px; display:inline-block; margin-top:.6rem; }
+  .badge--live { background: rgba(5,150,105,.12); color: var(--emerald); }
+  .badge--next { background: rgba(245,158,11,.14); color: var(--accent-ink); }
+  .badge--soon { background: rgba(100,116,139,.16); color: var(--muted); }
+  .badge--future { background: rgba(37,99,235,.12); color: var(--blue); }
+  .slide--dark .badge--next { color: var(--gold-400); }
+
+  /* CTA */
+  .cta__box { display:flex; flex-wrap: wrap; gap: 1rem; align-items:center; margin-top: 2rem; }
+  .btn { display:inline-flex; align-items:center; gap:.5rem; font-weight:600; font-size:1rem;
+    padding: .85rem 1.4rem; border-radius: 10px; text-decoration:none; border:1px solid transparent; }
+  .btn--primary { background: var(--gold); color: #201503; }
+  .btn--primary:hover { background: var(--gold-400); }
+  .btn--ghost { background: transparent; color:#fff; border-color: rgba(255,255,255,.25); }
+  .btn--ghost:hover { border-color: var(--gold-400); color: var(--gold-400); }
+  a.btn:focus-visible, a:focus-visible { outline: 3px solid var(--gold-400); outline-offset: 3px; border-radius: 8px; }
+
+  .footnote { color: var(--faint); font-size: .78rem; margin-top: 1.4rem; max-width: 60ch; }
+  .slide--dark .footnote { color: #7f92ac; }
+
+  /* progress rail */
+  .rail { position: fixed; top:0; left:0; height: 3px; background: var(--gold); width:0;
+    z-index: 50; transition: width .1s linear; }
+  .theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 60;
+    background: rgba(15,23,42,.5); color:#fff; border:1px solid rgba(255,255,255,.18);
+    border-radius: 999px; padding:.4rem .8rem; font-size:.78rem; cursor:pointer; backdrop-filter: blur(6px);
+    font-family: var(--font-ui); }
+  .theme-toggle:hover { border-color: var(--gold-400); color: var(--gold-400); }
+
+  .divider-label { font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; color:var(--gold);
+    font-weight:600; }
+</style>
+
+<div class="rail" id="rail"></div>
+<button class="theme-toggle" id="themeBtn" aria-label="Cambiar tema">◐ Tema</button>
+
+<!-- 01 · PORTADA -->
+<section class="slide slide--dark hero" id="s1">
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <div class="slide__inner hero__content">
+    <div class="brand">
+      <span class="monogram" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle cx="6" cy="6" r="1.4" fill="#FBBF24"/><circle cx="18" cy="7" r="1.1" fill="#fff"/>
+          <circle cx="12" cy="12" r="1.5" fill="#FBBF24"/><circle cx="7" cy="18" r="1.1" fill="#fff"/>
+          <circle cx="17" cy="17" r="1.3" fill="#FBBF24"/>
+          <path d="M6 6 L12 12 L18 7 M12 12 L7 18 M12 12 L17 17" stroke="#FFCE8A" stroke-width="1" opacity=".7"/>
+        </svg>
+      </span>
+      <span>
+        <span class="brand__by">Plataforma de</span>
+        <span class="brand__name">{{PRODUCTO}} <span style="color:#94A3B8; font-weight:500;">by K&amp;K</span></span>
+      </span>
+    </div>
+
+    <!-- Titular gancho: promesa concreta al cliente. Usa <em> para resaltar en dorado. -->
+    <h1>{{TITULAR_PORTADA}} <em>{{FRASE_DESTACADA}}</em>.</h1>
+    <p class="lead">{{SUBTITULO_PORTADA}} — <strong>{{PROMESA_CLAVE}}</strong>.</p>
+
+    <!-- Chips: 2-3 datos de impacto. -->
+    <div class="hero__meta">
+      <span class="chip"><b>{{DATO_1}}</b>&nbsp; {{ETIQUETA_1}}</span>
+      <span class="chip">{{DATO_2}} <b>{{DATO_2B}}</b></span>
+    </div>
+  </div>
+  <div class="scrollcue" aria-hidden="true">Desliza<span></span></div>
+</section>
+
+<!-- 02 · PROBLEMA -->
+<section class="slide slide--content" id="s2">
+  <div class="slide__inner stack">
+    <p class="eyebrow"><span class="idx">01</span> El problema de hoy</p>
+    <h2>{{TITULAR_PROBLEMA}}</h2>
+
+    <!-- 3 dolores. Sólo el título en pantalla; el detalle lo dices tú al presentar. -->
+    <div class="grid cols-3 keep2" style="margin-top:1.4rem;">
+      <div class="card card--pain">
+        <div class="ico ico--rose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+        <h3>{{DOLOR_1}}</h3>
+      </div>
+      <div class="card card--pain">
+        <div class="ico ico--rose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg></div>
+        <h3>{{DOLOR_2}}</h3>
+      </div>
+      <div class="card card--pain">
+        <div class="ico ico--rose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg></div>
+        <h3>{{DOLOR_3}}</h3>
+      </div>
+    </div>
+    <p class="footnote">{{NOTA_PROBLEMA}}</p>
+  </div>
+</section>
+
+<!-- 03 · SOLUCIÓN / CÓMO FUNCIONA  (flujo de 4 pasos — opcional según el producto) -->
+<section class="slide slide--content" id="s3" style="background:var(--surface-2);">
+  <div class="slide__inner stack">
+    <p class="eyebrow"><span class="idx">02</span> Qué es {{PRODUCTO}}</p>
+    <h2>{{TITULAR_SOLUCION}}</h2>
+
+    <div class="flow" style="margin-top:1.5rem;">
+      <div class="step">
+        <span class="step__k">01</span>
+        <h3>{{PASO_1_TITULO}}</h3>
+        <p>{{PASO_1_DESC}}</p>
+        <span class="step__tag tag--code">Automático</span>
+      </div>
+      <div class="step">
+        <span class="step__k">02</span>
+        <h3>{{PASO_2_TITULO}}</h3>
+        <p>{{PASO_2_DESC}}</p>
+        <span class="step__tag tag--ai">IA interpreta</span>
+      </div>
+      <div class="step">
+        <span class="step__k">03</span>
+        <h3>{{PASO_3_TITULO}}</h3>
+        <p>{{PASO_3_DESC}}</p>
+        <span class="step__tag tag--code">Código calcula</span>
+      </div>
+      <div class="step">
+        <span class="step__k">04</span>
+        <h3>{{PASO_4_TITULO}}</h3>
+        <p>{{PASO_4_DESC}}</p>
+        <span class="step__tag tag--human">Con tu aprobación</span>
+      </div>
+    </div>
+    <div class="banner"><span class="dot"></span>
+      <span><strong>{{BANNER_TITULO}}:</strong> {{BANNER_TEXTO}}</span>
+    </div>
+  </div>
+</section>
+
+<!-- 04 · CONFIANZA / CONTROL -->
+<section class="slide slide--dark" id="s4">
+  <div class="slide__inner">
+    <p class="eyebrow"><span class="idx">03</span> Por qué puedes confiar</p>
+    <div class="split">
+      <div class="stack">
+        <h2 style="color:#fff;">{{TITULAR_CONFIANZA}}</h2>
+      </div>
+      <ul class="checks">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+          <span><b>{{GARANTIA_1}}</b> {{GARANTIA_1_DESC}}</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+          <span><b>{{GARANTIA_2}}</b> {{GARANTIA_2_DESC}}</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+          <span><b>{{GARANTIA_3}}</b> {{GARANTIA_3_DESC}}</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+          <span><b>{{GARANTIA_4}}</b> {{GARANTIA_4_DESC}}</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 05 · SEGURIDAD Y CONFIDENCIALIDAD -->
+<section class="slide slide--content" id="s5sec" style="background:var(--surface-2);">
+  <div class="slide__inner stack">
+    <p class="eyebrow"><span class="idx">04</span> Seguridad y confidencialidad</p>
+    <h2>Tus datos <span class="gold">no salen del equipo.</span></h2>
+    <p class="lead">{{SUBTITULO_SEGURIDAD}}</p>
+
+    <div class="grid cols-4 keep2" style="margin-top:1.4rem;">
+      <div class="card">
+        <div class="ico ico--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></div>
+        <h3>Infraestructura propia</h3>
+      </div>
+      <div class="card">
+        <div class="ico ico--gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Acceso controlado</h3>
+      </div>
+      <div class="card">
+        <div class="ico ico--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Conexión cifrada</h3>
+      </div>
+      <div class="card">
+        <div class="ico ico--emerald"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h13M4 12h13M4 18h8"/><path d="M15 16l2 2 4-4"/></svg></div>
+        <h3>A prueba de manipulación</h3>
+      </div>
+    </div>
+
+    <div class="banner"><span class="dot"></span>
+      <span><strong>Confidencialidad por diseño:</strong> es una regla de K&amp;K — ningún dato real de cliente (montos, archivos, nombres) se comparte fuera del equipo.</span>
+    </div>
+  </div>
+</section>
+
+<!-- 06 · BENEFICIOS / AHORRO -->
+<section class="slide slide--content" id="s6">
+  <div class="slide__inner stack">
+    <p class="eyebrow"><span class="idx">05</span> Lo que ganas</p>
+    <h2>{{TITULAR_BENEFICIOS}}</h2>
+    <p class="lead">{{SUBTITULO_BENEFICIOS}}</p>
+
+    <!-- Cifras de impacto. NO inventes números reales: usa hechos verificables o marca "ilustrativo". -->
+    <div class="grid cols-3 keep2" style="margin-top:1.4rem;">
+      <div class="card stat stat--emerald">
+        <span class="stat__num">{{DATO_A}}</span>
+        <span class="stat__lbl">{{DATO_A_LBL}}</span>
+      </div>
+      <div class="card stat stat--gold">
+        <span class="stat__num">{{DATO_B}}</span>
+        <span class="stat__lbl">{{DATO_B_LBL}}</span>
+      </div>
+      <div class="card stat stat--emerald">
+        <span class="stat__num">{{DATO_C}}</span>
+        <span class="stat__lbl">{{DATO_C_LBL}}</span>
+      </div>
+    </div>
+
+    <div class="grid cols-3 keep2" style="margin-top:1rem;">
+      <div class="card">
+        <div class="ico ico--emerald"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
+        <h3>{{BENEFICIO_1}}</h3>
+        <p>{{BENEFICIO_1_DESC}}</p>
+      </div>
+      <div class="card">
+        <div class="ico ico--emerald"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>{{BENEFICIO_2}}</h3>
+        <p>{{BENEFICIO_2_DESC}}</p>
+      </div>
+      <div class="card">
+        <div class="ico ico--emerald"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.3 2.9-5 6.5-5s6.5 1.7 6.5 5"/><path d="M17 9l2 2 4-4"/></svg></div>
+        <h3>{{BENEFICIO_3}}</h3>
+        <p>{{BENEFICIO_3_DESC}}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 · ESCALABILIDAD  (opcional) -->
+<section class="slide slide--content" id="s7" style="background:var(--surface-2);">
+  <div class="slide__inner stack">
+    <p class="eyebrow"><span class="idx">06</span> Un modelo que crece</p>
+    <h2>Se construye una vez. <span class="gold">Crece sin rehacerse.</span></h2>
+    <p class="lead">{{SUBTITULO_ESCALA}}</p>
+
+    <div class="core" style="margin-top:1.4rem;">
+      <span class="k">NÚCLEO · una sola vez</span>
+      <h3>{{NUCLEO_CAPACIDADES}}</h3>
+      <p>{{NUCLEO_DESC}}</p>
+    </div>
+
+    <div class="pipes">
+      <div class="pipe">
+        <h4>{{MODULO_1}}</h4>
+        <span class="badge badge--live">● En marcha</span>
+      </div>
+      <div class="pipe">
+        <h4>{{MODULO_2}}</h4>
+        <span class="badge badge--next">◐ Siguiente</span>
+      </div>
+      <div class="pipe">
+        <h4>{{MODULO_3}}</h4>
+        <span class="badge badge--soon">○ En diseño</span>
+      </div>
+      <div class="pipe">
+        <h4>Lo que sigas necesitando</h4>
+        <span class="badge badge--future">+ A futuro</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 · CIERRE -->
+<section class="slide slide--dark" id="s8">
+  <div class="slide__inner stack">
+    <p class="divider-label">{{PRODUCTO}} by K&amp;K</p>
+    <h2 style="color:#fff; max-width:20ch;">{{TITULAR_CIERRE}}</h2>
+    <div class="cta__box">
+      <!-- href: URL demo del producto o ancla interna (#s1). Externo abre en pestaña nueva. -->
+      <a class="btn btn--primary" href="{{URL_CTA}}">{{CTA_PRIMARIO}}</a>
+      <a class="btn btn--ghost" href="{{URL_DEMO}}" target="_blank" rel="noopener noreferrer">Ver cómo funciona →</a>
+    </div>
+    <p class="footnote">Presentación preparada por K&amp;K Consultora · {{AUTORES}}.</p>
+  </div>
+</section>
+
+<script>
+  // Theme toggle
+  (function(){
+    var root = document.documentElement, btn = document.getElementById('themeBtn');
+    btn.addEventListener('click', function(){
+      var cur = root.getAttribute('data-theme');
+      var dark = cur ? cur === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      root.setAttribute('data-theme', dark ? 'light' : 'dark');
+    });
+  })();
+
+  // Progress rail
+  (function(){
+    var rail = document.getElementById('rail');
+    function upd(){
+      var h = document.documentElement, max = h.scrollHeight - h.clientHeight;
+      rail.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+    }
+    addEventListener('scroll', upd, {passive:true}); upd();
+  })();
+
+  // Constellation canvas (firma visual "Orión" — opcional; borra este bloque y el <canvas> si no lo quieres)
+  (function(){
+    var c = document.getElementById('sky'); if(!c) return;
+    var ctx = c.getContext('2d'), W, H, dpr, stars = [], bg = [];
+    var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Orión — posiciones relativas (0..1)
+    var orion = [
+      {x:.50,y:.13,r:2.0}, // Meissa (cabeza)
+      {x:.62,y:.29,r:3.2}, // Betelgeuse
+      {x:.37,y:.31,r:2.6}, // Bellatrix
+      {x:.575,y:.52,r:2.4},// Alnitak
+      {x:.50,y:.535,r:2.4},// Alnilam
+      {x:.425,y:.55,r:2.4},// Mintaka
+      {x:.60,y:.80,r:2.8}, // Saiph
+      {x:.35,y:.82,r:3.0}  // Rigel
+    ];
+    var links = [[1,2],[0,1],[0,2],[1,3],[2,5],[3,4],[4,5],[3,6],[5,7],[6,7]];
+    function resize(){
+      dpr = Math.min(devicePixelRatio||1, 2);
+      W = c.clientWidth; H = c.clientHeight;
+      c.width = W*dpr; c.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+      // background field
+      bg = [];
+      var n = Math.round(W*H/9000);
+      for(var i=0;i<n;i++) bg.push({x:Math.random()*W, y:Math.random()*H,
+        r:Math.random()*1.1+.2, a:Math.random()*.5+.15, tw:Math.random()*Math.PI*2, sp:Math.random()*.02+.005});
+      // map orion to right-ish region
+      var ox = W*0.46, oy = H*0.06, ow = Math.min(W*0.52, 620), oh = Math.min(H*0.9, 560);
+      stars = orion.map(function(s){ return {x:ox+s.x*ow, y:oy+s.y*oh, r:s.r, tw:Math.random()*Math.PI*2}; });
+    }
+    function draw(t){
+      ctx.clearRect(0,0,W,H);
+      // bg stars
+      for(var i=0;i<bg.length;i++){ var b=bg[i];
+        var a = b.a * (reduce?1:(0.6+0.4*Math.sin(b.tw + t*b.sp)));
+        ctx.beginPath(); ctx.fillStyle='rgba(159,180,214,'+a+')';
+        ctx.arc(b.x,b.y,b.r,0,6.283); ctx.fill();
+      }
+      // constellation lines
+      ctx.lineWidth = 1; ctx.strokeStyle='rgba(255,206,138,.28)';
+      ctx.shadowColor='rgba(255,206,138,.5)'; ctx.shadowBlur=6;
+      for(var l=0;l<links.length;l++){ var A=stars[links[l][0]], B=stars[links[l][1]];
+        ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke(); }
+      ctx.shadowBlur=0;
+      // main stars
+      for(var s=0;s<stars.length;s++){ var st=stars[s];
+        var pulse = reduce?1:(0.75+0.25*Math.sin(t*0.0016 + st.tw));
+        var grd = ctx.createRadialGradient(st.x,st.y,0,st.x,st.y,st.r*6);
+        grd.addColorStop(0,'rgba(255,240,205,'+(0.9*pulse)+')');
+        grd.addColorStop(.3,'rgba(251,191,36,'+(0.5*pulse)+')');
+        grd.addColorStop(1,'rgba(251,191,36,0)');
+        ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(st.x,st.y,st.r*6,0,6.283); ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,'+pulse+')'; ctx.beginPath(); ctx.arc(st.x,st.y,st.r,0,6.283); ctx.fill();
+      }
+      if(!reduce) raf = requestAnimationFrame(draw);
+    }
+    var raf;
+    function start(){ cancelAnimationFrame(raf); resize(); if(reduce){ draw(0); } else { raf=requestAnimationFrame(draw); } }
+    addEventListener('resize', function(){ clearTimeout(c._t); c._t=setTimeout(start,150); });
+    start();
+  })();
+
+  // Navegación por teclado (←/→). Si agregas o quitas secciones, actualiza este arreglo con sus id.
+  (function(){
+    var ids = ['s1','s2','s3','s4','s5sec','s6','s7','s8'];
+    function cur(){ var y=scrollY+innerHeight*0.4, best=0;
+      for(var i=0;i<ids.length;i++){ var e=document.getElementById(ids[i]); if(e && e.offsetTop<=y) best=i; }
+      return best; }
+    addEventListener('keydown', function(e){
+      if(e.key==='ArrowRight'||e.key==='PageDown'){ e.preventDefault(); var n=Math.min(cur()+1,ids.length-1); document.getElementById(ids[n]).scrollIntoView(); }
+      if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); var p=Math.max(cur()-1,0); document.getElementById(ids[p]).scrollIntoView(); }
+    });
+  })();
+</script>
